@@ -464,66 +464,53 @@ async function addSummons() {
 
 // ==================== CALENDAR & COURT FUNCTIONS ====================
 
-let currentMonth = new Date(); // Tracks the viewed month
-let selectedDate = new Date(); // Tracks the clicked day
-let allBookings = []; // Cache for the current month's bookings
+let currentMonth = new Date();
+let selectedDate = new Date();
+let allBookings = [];
 
 // Initialize Calendar
 async function initCalendar() {
     renderCalendarHeader();
     await fetchMonthBookings();
     renderCalendarGrid();
-    selectDate(selectedDate); // Select today by default
 }
 
-// Render Month/Year Header
 function renderCalendarHeader() {
     const options = { month: 'long', year: 'numeric' };
     document.getElementById('current-month').textContent = currentMonth.toLocaleDateString('en-US', options);
 }
 
-// Fetch all bookings for the current month
 async function fetchMonthBookings() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    
     const startOfMonth = new Date(year, month, 1).toISOString().split('T')[0];
     const endOfMonth = new Date(year, month + 1, 0).toISOString().split('T')[0];
     
     try {
-        // Note: Firestore range queries require an index if filtering by date range.
-        // If this fails, we might need to fetch all and filter client-side for simplicity in this demo.
-        // For now, let's fetch all and filter client-side to avoid index errors for the user.
         const snapshot = await db.collection('courtBookings')
             .where('date', '>=', startOfMonth)
             .where('date', '<=', endOfMonth)
             .get();
-            
         allBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
-        console.warn("Range query failed (missing index?), fetching all...", error);
-        // Fallback: Fetch all (not efficient for large DBs but works for small barangays)
-        const snapshot = await db.collection('courtBookings').get();
-        allBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(b => b.date >= startOfMonth && b.date <= endOfMonth);
+        console.warn("Fetch error", error);
+        allBookings = [];
     }
 }
 
-// Render the Grid
 function renderCalendarGrid() {
     const grid = document.getElementById('calendar-grid');
-    // Clear existing days (keep headers)
+    // Clear old days (keep headers)
     const headers = Array.from(grid.children).slice(0, 7);
     grid.innerHTML = '';
     headers.forEach(h => grid.appendChild(h));
     
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
-    // Empty cells for days before the 1st
+    // Empty cells
     for (let i = 0; i < firstDayOfMonth; i++) {
         const emptyCell = document.createElement('div');
         grid.appendChild(emptyCell);
@@ -538,81 +525,53 @@ function renderCalendarGrid() {
         
         const cell = document.createElement('div');
         cell.className = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
+        cell.setAttribute('data-count', dayBookings.length); // For mobile CSS
         cell.onclick = () => {
             selectedDate = new Date(year, month, day);
-            renderCalendarGrid(); // Re-render to update selection style
-            selectDate(selectedDate);
+            renderCalendarGrid(); // Re-render to update selection
         };
         
-        let indicators = '';
+        // Render bookings inside grid
+        let bookingsHtml = '';
         if (dayBookings.length > 0) {
-            const userBookings = dayBookings.filter(b => !b.isAdminBooking).length;
-            const adminBookings = dayBookings.filter(b => b.isAdminBooking).length;
+            // Sort by time
+            dayBookings.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
             
-            indicators = `<div style="display:flex; gap:2px; margin-top:4px;">`;
-            if (userBookings > 0) indicators += `<div class="day-indicator" title="${userBookings} bookings"></div>`;
-            if (adminBookings > 0) indicators += `<div class="day-indicator admin" title="${adminBookings} admin bookings"></div>`;
-            indicators += `</div><div class="day-count">${dayBookings.length} booked</div>`;
+            bookingsHtml = '<div class="grid-bookings">';
+            dayBookings.forEach(b => {
+                const time = (b.startTime && b.endTime) 
+                    ? `${b.startTime} - ${b.endTime}` 
+                    : 'All Day';
+                const isAdmin = b.isAdminBooking;
+                
+                bookingsHtml += `
+                    <div class="grid-booking ${isAdmin ? 'admin' : ''}">
+                        <div class="grid-time">${time}</div>
+                        <div class="grid-name">${escapeHtml(b.bookerName)}</div>
+                    </div>
+                `;
+            });
+            bookingsHtml += '</div>';
         }
         
         cell.innerHTML = `
-            <div class="day-number">${day}</div>
-            ${indicators}
+            <div class="day-top">
+                <div class="day-number">${day}</div>
+            </div>
+            ${bookingsHtml}
         `;
         
         grid.appendChild(cell);
     }
 }
 
-// Handle Month Navigation
 function changeMonth(delta) {
     currentMonth.setMonth(currentMonth.getMonth() + delta);
     initCalendar();
 }
 
-// Select a Date and Show Details
-function selectDate(date) {
-    const dateStr = date.toISOString().split('T')[0];
-    const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
-    document.getElementById('selected-day-title').textContent = date.toLocaleDateString('en-US', options);
-    document.getElementById('court-date').value = dateStr;
-    
-    const dayBookings = allBookings.filter(b => b.date === dateStr);
-    const list = document.getElementById('booking-list');
-    
-    if (dayBookings.length === 0) {
-        list.innerHTML = '<p style="text-align:center; color:var(--text-light); padding:20px;">No bookings for this day. Court is open!</p>';
-        return;
-    }
-    
-    // Sort by time
-    dayBookings.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
-    
-    list.innerHTML = dayBookings.map(b => {
-        const time = (b.startTime && b.endTime) 
-            ? `${formatTime(b.startTime)} - ${formatTime(b.endTime)}` 
-            : 'All Day';
-        const isAdmin = b.isAdminBooking;
-        
-        return `
-            <div class="booking-item ${isAdmin ? 'admin' : ''}">
-                <div class="booking-time">${time}</div>
-                <div class="booking-info">
-                    <div class="booking-name">${escapeHtml(b.bookerName)}</div>
-                    <div class="booking-activity">${escapeHtml(b.activity)}</div>
-                </div>
-                ${isAdmin ? '<span style="font-size:12px; color:var(--accent); font-weight:600;">ADMIN</span>' : ''}
-            </div>
-        `;
-    }).join('');
-}
-
-// Open Booking Modal for Selected Date
+// Open Booking Modal
 function openBookingModal() {
-    if (!selectedDate) {
-        showToast('Please select a date on the calendar first.', 'warning');
-        return;
-    }
     document.getElementById('court-date').value = selectedDate.toISOString().split('T')[0];
     openModal('courtModal');
 }
@@ -626,15 +585,13 @@ async function bookCourt() {
     const activity = document.getElementById('court-activity')?.value;
     
     if (!name || !date || !start || !end) { showToast('Fill all fields.', 'warning'); return; }
-    if (start >= end) { showToast('End time must be after start time.', 'warning'); return; }
+    if (start >= end) { showToast('End time must be after start.', 'warning'); return; }
     
-    // Check Hours
     const startH = parseInt(start.split(':')[0]);
     const endH = parseInt(end.split(':')[0]);
     if (startH < 6 || endH > 19) { showToast('Court hours: 6 AM - 7 PM', 'warning'); return; }
     
     try {
-        // Check Overlaps
         const reqStart = toMinutes(start);
         const reqEnd = toMinutes(end);
         
@@ -650,7 +607,6 @@ async function bookCourt() {
             return;
         }
         
-        // Save
         await db.collection('courtBookings').add({
             userId: currentUser.uid,
             userName: currentUser.email,
@@ -665,12 +621,8 @@ async function bookCourt() {
         
         closeModal('courtModal');
         showToast('Booking Confirmed!', 'success');
-        
-        // Refresh Data
         await fetchMonthBookings();
         renderCalendarGrid();
-        selectDate(selectedDate);
-        
         document.getElementById('court-booker').value = '';
         
     } catch (error) {
@@ -678,12 +630,11 @@ async function bookCourt() {
     }
 }
 
-// Admin: Clear Day
+// Admin Clear
 async function adminClearDay() {
     if (userRole !== 'admin') return;
     const date = selectedDate.toISOString().split('T')[0];
     if (!confirm(`Delete ALL bookings for ${date}?`)) return;
-    
     try {
         const snap = await db.collection('courtBookings').where('date', '==', date).get();
         const batch = db.batch();
@@ -692,7 +643,6 @@ async function adminClearDay() {
         showToast('Day cleared', 'success');
         await fetchMonthBookings();
         renderCalendarGrid();
-        selectDate(selectedDate);
         closeModal('adminCourtModal');
     } catch (e) { showToast('Error', 'danger'); }
 }
@@ -702,9 +652,7 @@ function formatTime(timeStr) {
     if (!timeStr) return '';
     const [h, m] = timeStr.split(':');
     const hour = parseInt(h);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const h12 = hour % 12 || 12;
-    return `${h12}:${m} ${ampm}`;
+    return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
 }
 
 function toMinutes(timeStr) {
@@ -724,7 +672,6 @@ window.changeMonth = changeMonth;
 window.openBookingModal = openBookingModal;
 window.bookCourt = bookCourt;
 window.adminClearDay = adminClearDay;
-window.selectDate = selectDate;
 window.openModal = function(id) { document.getElementById(id).classList.add('show'); };
 window.closeModal = function(id) { document.getElementById(id).classList.remove('show'); };
 window.saveProfileChanges = async function() {
