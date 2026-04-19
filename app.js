@@ -464,10 +464,18 @@ let currentMonth = new Date();
 let selectedDate = new Date();
 let allBookings = [];
 
+// Helper: Get YYYY-MM-DD string from any Date object (Local Time)
+function getLocalDateString(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 // Initialize Calendar
 async function initCalendar(resetDate = false) {
-    // If resetDate is true (on page load), force current date
     if (resetDate) {
+        // Force reset to NOW
         currentMonth = new Date();
         selectedDate = new Date();
     }
@@ -486,8 +494,9 @@ function renderCalendarHeader() {
 async function fetchMonthBookings() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    const startOfMonth = new Date(year, month, 1).toISOString().split('T')[0];
-    const endOfMonth = new Date(year, month + 1, 0).toISOString().split('T')[0];
+    // Use local date strings for query bounds
+    const startOfMonth = getLocalDateString(new Date(year, month, 1));
+    const endOfMonth = getLocalDateString(new Date(year, month + 1, 0));
     
     try {
         const snapshot = await db.collection('courtBookings')
@@ -515,6 +524,10 @@ function renderCalendarGrid() {
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
+    // Get Today's string once for comparison
+    const todayStr = getLocalDateString(new Date());
+    const selectedStr = getLocalDateString(selectedDate);
+    
     // Empty cells
     for (let i = 0; i < firstDayOfMonth; i++) {
         const emptyCell = document.createElement('div');
@@ -523,17 +536,23 @@ function renderCalendarGrid() {
     
     // Days
     for (let day = 1; day <= daysInMonth; day++) {
+        // Construct date string manually to avoid timezone shifts
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
         const dayBookings = allBookings.filter(b => b.date === dateStr);
-        const isToday = dateStr === new Date().toISOString().split('T')[0];
-        const isSelected = dateStr === selectedDate.toISOString().split('T')[0];
+        
+        // Compare strings directly
+        const isToday = (dateStr === todayStr);
+        const isSelected = (dateStr === selectedStr);
         
         const cell = document.createElement('div');
         cell.className = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
         cell.setAttribute('data-count', dayBookings.length);
+        
         cell.onclick = () => {
+            // Set selected date explicitly to avoid timezone issues
             selectedDate = new Date(year, month, day);
-            renderCalendarGrid(); // Re-render to update selection style
+            renderCalendarGrid(); 
         };
         
         // Render bookings inside grid
@@ -565,19 +584,21 @@ function renderCalendarGrid() {
 // Change Month (Arrow Buttons)
 function changeMonth(delta) {
     currentMonth.setMonth(currentMonth.getMonth() + delta);
-    initCalendar(false); // Don't reset date, just render new month
+    initCalendar(false); 
 }
 
 // Open Booking Modal
 function openBookingModal() {
-    document.getElementById('court-date').value = selectedDate.toISOString().split('T')[0];
+    // Ensure the input gets the local date string of the selected date
+    document.getElementById('court-date').value = getLocalDateString(selectedDate);
     openModal('courtModal');
 }
 
 // Submit Booking
 async function bookCourt() {
     const name = document.getElementById('court-booker')?.value.trim();
-    const date = document.getElementById('court-date')?.value;
+    // Use the value from the input, which is already in YYYY-MM-DD format
+    const date = document.getElementById('court-date')?.value; 
     const start = document.getElementById('court-start-time')?.value;
     const end = document.getElementById('court-end-time')?.value;
     const activity = document.getElementById('court-activity')?.value;
@@ -592,6 +613,8 @@ async function bookCourt() {
     try {
         const reqStart = toMinutes(start);
         const reqEnd = toMinutes(end);
+        
+        // Check overlaps using the date string from the form
         const hasOverlap = allBookings.some(b => {
             if (b.date !== date) return false;
             return (reqStart < toMinutes(b.endTime) && reqEnd > toMinutes(b.startTime));
@@ -600,12 +623,20 @@ async function bookCourt() {
         if (hasOverlap) { showToast('Time slot overlaps!', 'danger'); return; }
         
         await db.collection('courtBookings').add({
-            userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity,
-            isAdminBooking: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            userId: currentUser.uid, 
+            bookerName: name, 
+            date: date, // Save exactly what was selected
+            startTime: start, 
+            endTime: end, 
+            activity,
+            isAdminBooking: false, 
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
         closeModal('courtModal');
         showToast('Booking Confirmed!', 'success');
+        
+        // Refresh view
         await fetchMonthBookings();
         renderCalendarGrid();
         document.getElementById('court-booker').value = '';
@@ -615,7 +646,7 @@ async function bookCourt() {
 // Admin Clear
 async function adminClearDay() {
     if (userRole !== 'admin') return;
-    const date = selectedDate.toISOString().split('T')[0];
+    const date = getLocalDateString(selectedDate);
     if (!confirm(`Delete ALL bookings for ${date}?`)) return;
     try {
         const snap = await db.collection('courtBookings').where('date', '==', date).get();
