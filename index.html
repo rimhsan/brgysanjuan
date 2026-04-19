@@ -5,510 +5,672 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
     <meta name="theme-color" content="#1a5276">
     <title>Barangay San Juan - Iriga City Portal</title>
-    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #1a5276;
+            --primary-light: #2980b9;
+            --primary-dark: #0e2f44;
+            --accent: #e67e22;
+            --accent-light: #f39c12;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f1c40f;
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --text: #2c3e50;
+            --text-light: #7f8c8d;
+            --border: #dfe6e9;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .auth-container {
+            max-width: 480px;
+            margin: 50px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .auth-header { text-align: center; margin-bottom: 32px; }
+        .auth-logo {
+            width: 80px;
+            height: 80px;
+            background: var(--bg);
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+        .auth-header h1 { font-size: 24px; margin-bottom: 4px; }
+        .auth-header p { color: var(--text-light); font-size: 14px; }
+        .auth-form h2 { font-size: 20px; margin-bottom: 24px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            background: white;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(41, 128, 185, 0.1);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); }
+        .btn-accent { background: var(--accent); color: white; }
+        .btn-accent:hover { background: var(--accent-light); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { background: var(--bg); }
+        .btn-full { width: 100%; margin-top: 8px; }
+        .auth-switch {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .auth-switch a {
+            color: var(--primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .auth-error {
+            color: var(--danger);
+            text-align: center;
+            margin-top: 16px;
+            font-size: 14px;
+            display: none;
+        }
+        .section {
+            max-width: 800px;
+            margin: 30px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 16px;
+            width: 540px;
+            max-width: 95vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-header h3 { font-size: 18px; }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+        .modal-body { padding: 24px; }
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+            min-width: 300px;
+        }
+        .toast-success { background: var(--success); }
+        .toast-danger { background: var(--danger); }
+        .toast-warning { background: var(--accent); }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateX(100%); }
+        }
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            .auth-container { margin: 20px; padding: 24px; }
+        }
+    </style>
 </head>
 <body>
 
     <!-- AUTH SCREEN -->
     <div id="auth-screen" class="auth-container">
-        <div class="auth-box">
-            <div class="auth-header">
-                <div class="auth-logo">🏛️</div>
-                <h1>Barangay San Juan</h1>
-                <p>Iriga City, Camarines Sur</p>
-            </div>
-
-            <!-- Login Form -->
-            <div id="login-form" class="auth-form">
-                <h2>Welcome Back</h2>
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
-                </div>
-                <button class="btn btn-primary btn-full" onclick="handleLogin()">Login</button>
-                <p class="auth-switch">
-                    Don't have an account? <a href="#" onclick="toggleAuthMode('signup')">Sign up</a>
-                </p>
-            </div>
-
-            <!-- Signup Form -->
-            <div id="signup-form" class="auth-form" style="display:none;">
-                <h2>Create Account</h2>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>First Name</label>
-                        <input type="text" id="signup-fname" placeholder="Juan">
-                    </div>
-                    <div class="form-group">
-                        <label>Last Name</label>
-                        <input type="text" id="signup-lname" placeholder="Dela Cruz">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Purok</label>
-                    <select id="signup-purok">
-                        <option value="">Select Purok</option>
-                        <option value="Purok 1">Purok 1</option>
-                        <option value="Purok 2">Purok 2</option>
-                        <option value="Purok 3">Purok 3</option>
-                        <option value="Purok 4">Purok 4</option>
-                        <option value="Purok 5">Purok 5</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" id="signup-email" placeholder="you@example.com">
-                </div>
-                <div class="form-group">
-                    <label>Password (min 6 characters)</label>
-                    <input type="password" id="signup-password" placeholder="••••••••">
-                </div>
-                <button class="btn btn-accent btn-full" onclick="handleSignup()">Create Account</button>
-                <p class="auth-switch">
-                    Already have an account? <a href="#" onclick="toggleAuthMode('login')">Login</a>
-                </p>
-            </div>
-
-            <div id="auth-error" class="auth-error"></div>
+        <div class="auth-header">
+            <div class="auth-logo">🏛️</div>
+            <h1>Barangay San Juan</h1>
+            <p>Iriga City, Camarines Sur</p>
         </div>
+
+        <!-- Login Form -->
+        <div id="login-form" class="auth-form">
+            <h2>Welcome Back</h2>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="login-email" placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-password" placeholder="••••••••">
+            </div>
+            <button class="btn btn-primary btn-full" onclick="handleLogin()">Login</button>
+            <p class="auth-switch">
+                Don't have an account? <a href="#" onclick="toggleAuthMode('signup')">Sign up</a>
+            </p>
+        </div>
+
+        <!-- Signup Form -->
+        <div id="signup-form" class="auth-form" style="display:none;">
+            <h2>Create Account</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input type="text" id="signup-fname" placeholder="Juan">
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" id="signup-lname" placeholder="Dela Cruz">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Purok</label>
+                <select id="signup-purok">
+                    <option value="">Select Purok</option>
+                    <option value="Purok 1">Purok 1</option>
+                    <option value="Purok 2">Purok 2</option>
+                    <option value="Purok 3">Purok 3</option>
+                    <option value="Purok 4">Purok 4</option>
+                    <option value="Purok 5">Purok 5</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="signup-email" placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password (min 6 characters)</label>
+                <input type="password" id="signup-password" placeholder="••••••••">
+            </div>
+            <button class="btn btn-accent btn-full" onclick="handleSignup()">Create Account</button>
+            <p class="auth-switch">
+                Already have an account? <a href="#" onclick="toggleAuthMode('login')">Login</a>
+            </p>
+        </div>
+
+        <div id="auth-error" class="auth-error"></div>
     </div>
 
-    <!-- MAIN APP -->
+    <!-- MAIN APP (Shown after login) -->
     <div id="app-wrapper" style="display:none;">
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">🏛️</div>
-                <h2>Barangay San Juan</h2>
-                <p>Iriga City, Camarines Sur</p>
+        
+        <!-- File Complaint Section -->
+        <div class="section">
+            <h2>📝 File a Complaint</h2>
+            <div class="form-group">
+                <label>Category *</label>
+                <select id="complaint-category">
+                    <option value="">Select category...</option>
+                    <option value="roadwork">🚧 Roadwork / Road Damage</option>
+                    <option value="lightpost">💡 Lightpost / Electricity</option>
+                    <option value="drainage">🔧 Drainage / Water</option>
+                    <option value="noise">📢 Noise Complaint</option>
+                    <option value="garbage">🗑️ Garbage / Sanitation</option>
+                    <option value="other">📌 Other</option>
+                </select>
             </div>
-            <nav class="sidebar-nav">
-                <a href="#" class="active" data-page="dashboard">
-                    <span class="icon">📊</span> Dashboard
-                </a>
-                <a href="#" data-page="complaints">
-                    <span class="icon">📝</span> Complaints
-                </a>
-                <a href="#" data-page="residents">
-                    <span class="icon">👥</span> Residents
-                </a>
-                <div class="nav-section-label">Scheduling</div>
-                <a href="#" data-page="summons">
-                    <span class="icon">📋</span> Summons
-                </a>
-                <a href="#" data-page="court">
-                    <span class="icon">🏟️</span> Court Schedule
-                </a>
-                <div class="nav-section-label">Information</div>
-                <a href="#" data-page="map">
-                    <span class="icon">🗺️</span> Map
-                </a>
-                <a href="#" data-page="profile">
-                    <span class="icon">👤</span> My Profile
-                </a>
-                <a href="#" onclick="handleLogout()">
-                    <span class="icon">🚪</span> Logout
-                </a>
-            </nav>
-        </aside>
-
-        <!-- Main Content -->
-        <div class="main">
-            <!-- Top Bar -->
-            <div class="topbar">
-                <div class="topbar-left">
-                    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-                    <div class="search-box">
-                        <input type="text" placeholder="Search..." id="globalSearch">
-                    </div>
-                </div>
-                <div class="topbar-right">
-                    <button class="notification-btn">🔔<span class="notification-badge"></span></button>
-                    <div class="user-profile">
-                        <div class="user-avatar" id="user-avatar">JD</div>
-                        <div class="user-info">
-                            <div class="name" id="user-name">Loading...</div>
-                            <div class="role" id="user-role">Resident</div>
-                        </div>
-                    </div>
-                </div>
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" id="complaint-title" placeholder="Brief description">
             </div>
-
-            <!-- Content Area -->
-            <div class="content">
-
-                <!-- DASHBOARD -->
-                <div class="page active" id="page-dashboard">
-                    <h1 class="page-title">Dashboard</h1>
-                    <p class="page-subtitle">Welcome to Barangay San Juan Portal</p>
-
-                    <div class="stats-grid" id="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background:#eaf2f8; color:#2980b9;">📝</div>
-                            <div class="stat-value" id="stat-complaints">-</div>
-                            <div class="stat-label">Active Complaints</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background:#eafaf1; color:#27ae60;">👥</div>
-                            <div class="stat-value" id="stat-residents">-</div>
-                            <div class="stat-label">Registered Residents</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background:#fef9e7; color:#f39c12;">📋</div>
-                            <div class="stat-value" id="stat-summons">-</div>
-                            <div class="stat-label">Pending Summons</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon" style="background:#fdedec; color:#e74c3c;">🏟️</div>
-                            <div class="stat-value" id="stat-court">-</div>
-                            <div class="stat-label">Court Bookings</div>
-                        </div>
-                    </div>
-
-                    <div class="quick-actions">
-                        <div class="quick-action" onclick="openModal('complaintModal')">
-                            <div class="qa-icon">📝</div>
-                            <div class="qa-label">File Complaint</div>
-                        </div>
-                        <div class="quick-action" onclick="navigateTo('summons')">
-                            <div class="qa-icon">📋</div>
-                            <div class="qa-label">View Summons</div>
-                        </div>
-                        <div class="quick-action" onclick="navigateTo('court')">
-                            <div class="qa-icon">🏟️</div>
-                            <div class="qa-label">Book Court</div>
-                        </div>
-                        <div class="quick-action" onclick="navigateTo('map')">
-                            <div class="qa-icon">🗺️</div>
-                            <div class="qa-label">View Map</div>
-                        </div>
-                    </div>
-
-                    <div class="grid-2">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>📌 Recent Complaints</h3>
-                                <button class="btn btn-outline btn-sm" onclick="navigateTo('complaints')">View All</button>
-                            </div>
-                            <div class="card-body">
-                                <div class="complaint-list" id="recent-complaints">
-                                    <p style="text-align:center; color:#7f8c8d; padding:20px;">Loading...</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>🕐 Recent Activity</h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="timeline" id="activity-timeline">
-                                    <p style="text-align:center; color:#7f8c8d;">Loading...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- COMPLAINTS -->
-                <div class="page" id="page-complaints">
-                    <h1 class="page-title">Complaints & Concerns</h1>
-                    <p class="page-subtitle">File and track community concerns</p>
-
-                    <div class="action-bar">
-                        <div class="filter-tabs">
-                            <button class="filter-tab active" onclick="filterComplaints('all', this)">All</button>
-                            <button class="filter-tab" onclick="filterComplaints('pending', this)">⏳ Pending</button>
-                            <button class="filter-tab" onclick="filterComplaints('progress', this)">🔄 In Progress</button>
-                            <button class="filter-tab" onclick="filterComplaints('resolved', this)">✅ Resolved</button>
-                        </div>
-                        <button class="btn btn-primary" onclick="openModal('complaintModal')">➕ File Complaint</button>
-                    </div>
-
-                    <div class="complaint-list" id="complaint-list">
-                        <p style="text-align:center; padding:40px; color:#7f8c8d;">Loading complaints...</p>
-                    </div>
-                </div>
-
-                <!-- RESIDENTS -->
-                <div class="page" id="page-residents">
-                    <h1 class="page-title">Residents Directory</h1>
-                    <p class="page-subtitle">Browse registered residents</p>
-
-                    <div class="action-bar">
-                        <div class="filter-tabs">
-                            <button class="filter-tab active">All Puroks</button>
-                            <button class="filter-tab">Purok 1</button>
-                            <button class="filter-tab">Purok 2</button>
-                            <button class="filter-tab">Purok 3</button>
-                            <button class="filter-tab">Purok 4</button>
-                            <button class="filter-tab">Purok 5</button>
-                        </div>
-                    </div>
-
-                    <div class="resident-grid" id="resident-grid">
-                        <p style="text-align:center; padding:40px; color:#7f8c8d; grid-column:1/-1;">Loading residents...</p>
-                    </div>
-                </div>
-
-                <!-- SUMMONS -->
-                <div class="page" id="page-summons">
-                    <h1 class="page-title">Scheduled Summons</h1>
-                    <p class="page-subtitle">Barangay justice system hearings</p>
-
-                    <div class="action-bar" style="justify-content:flex-end;">
-                        <button class="btn btn-primary" onclick="openModal('summonsModal')">➕ Schedule Summons</button>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-body">
-                            <div id="summons-list">
-                                <p style="text-align:center; padding:40px; color:#7f8c8d;">Loading summons...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- COURT -->
-                <div class="page" id="page-court">
-                    <h1 class="page-title">Multipurpose Court</h1>
-                    <p class="page-subtitle">View and book time slots</p>
-
-                    <div class="action-bar">
-                        <div class="filter-tabs">
-                            <button class="filter-tab active" onclick="filterCourt('today', this)">Today</button>
-                            <button class="filter-tab" onclick="filterCourt('tomorrow', this)">Tomorrow</button>
-                            <button class="filter-tab" onclick="filterCourt('week', this)">This Week</button>
-                        </div>
-                        <button class="btn btn-accent" onclick="openModal('courtModal')">📅 Book Slot</button>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 id="court-date-title">Today's Schedule</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="schedule-grid" id="court-schedule">
-                                <p style="text-align:center; padding:40px; color:#7f8c8d; grid-column:1/-1;">Loading schedule...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- MAP -->
-                <div class="page" id="page-map">
-                    <h1 class="page-title">Barangay Map</h1>
-                    <p class="page-subtitle">Interactive map of San Juan, Iriga City</p>
-
-                    <div class="card">
-                        <div class="card-body" style="padding:16px;">
-                            <div id="map"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- PROFILE -->
-                <div class="page" id="page-profile">
-                    <h1 class="page-title">My Profile</h1>
-                    <p class="page-subtitle">Manage your account information</p>
-
-                    <div class="card" style="max-width:600px;">
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label>First Name</label>
-                                <input type="text" id="profile-fname" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label>Last Name</label>
-                                <input type="text" id="profile-lname" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label>Email</label>
-                                <input type="email" id="profile-email" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label>Purok</label>
-                                <input type="text" id="profile-purok" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label>Role</label>
-                                <input type="text" id="profile-role" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label>Member Since</label>
-                                <input type="text" id="profile-created" readonly>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+            <div class="form-group">
+                <label>Description *</label>
+                <textarea id="complaint-desc" placeholder="Provide details..." rows="4"></textarea>
             </div>
+            <div class="form-group">
+                <label>Purok *</label>
+                <select id="complaint-purok">
+                    <option value="">Select purok...</option>
+                    <option value="Purok 1">Purok 1</option>
+                    <option value="Purok 2">Purok 2</option>
+                    <option value="Purok 3">Purok 3</option>
+                    <option value="Purok 4">Purok 4</option>
+                    <option value="Purok 5">Purok 5</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="submitComplaint()">Submit Complaint</button>
+            <button class="btn btn-outline" onclick="clearComplaintForm()">Cancel</button>
         </div>
-    </div>
 
-    <!-- MODALS -->
-    
-    <!-- Complaint Modal -->
-    <div class="modal-overlay" id="complaintModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>📝 File a Complaint</h3>
-                <button class="modal-close" onclick="closeModal('complaintModal')">✕</button>
+        <!-- Schedule Summons Section -->
+        <div class="section">
+            <h2>📋 Schedule Summons</h2>
+            <div class="form-group">
+                <label>Complainant Name *</label>
+                <input type="text" id="summons-complainant" placeholder="Name">
             </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Category *</label>
-                    <select id="complaint-category">
-                        <option value="">Select category...</option>
-                        <option value="roadwork">🚧 Roadwork / Road Damage</option>
-                        <option value="lightpost">💡 Lightpost / Electricity</option>
-                        <option value="drainage">🔧 Drainage / Water</option>
-                        <option value="noise">📢 Noise Complaint</option>
-                        <option value="garbage">🗑️ Garbage / Sanitation</option>
-                        <option value="other">📌 Other</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Title *</label>
-                    <input type="text" id="complaint-title" placeholder="Brief description">
-                </div>
-                <div class="form-group">
-                    <label>Description *</label>
-                    <textarea id="complaint-desc" placeholder="Provide details..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Purok *</label>
-                    <select id="complaint-purok">
-                        <option value="">Select purok...</option>
-                        <option value="Purok 1">Purok 1</option>
-                        <option value="Purok 2">Purok 2</option>
-                        <option value="Purok 3">Purok 3</option>
-                        <option value="Purok 4">Purok 4</option>
-                        <option value="Purok 5">Purok 5</option>
-                    </select>
-                </div>
+            <div class="form-group">
+                <label>Respondent Name *</label>
+                <input type="text" id="summons-respondent" placeholder="Name">
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeModal('complaintModal')">Cancel</button>
-                <button class="btn btn-primary" onclick="submitComplaint()">Submit</button>
+            <div class="form-group">
+                <label>Case/Matter *</label>
+                <input type="text" id="summons-case" placeholder="e.g., Boundary dispute">
             </div>
-        </div>
-    </div>
-
-    <!-- Summons Modal -->
-    <div class="modal-overlay" id="summonsModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>📋 Schedule Summons</h3>
-                <button class="modal-close" onclick="closeModal('summonsModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Complainant Name *</label>
-                    <input type="text" id="summons-complainant" placeholder="Name">
-                </div>
-                <div class="form-group">
-                    <label>Respondent Name *</label>
-                    <input type="text" id="summons-respondent" placeholder="Name">
-                </div>
-                <div class="form-group">
-                    <label>Case/Matter *</label>
-                    <input type="text" id="summons-case" placeholder="e.g., Boundary dispute">
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Date *</label>
-                        <input type="date" id="summons-date">
-                    </div>
-                    <div class="form-group">
-                        <label>Time *</label>
-                        <input type="time" id="summons-time">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Location</label>
-                    <select id="summons-location">
-                        <option value="Barangay Hall - Conference Room">Conference Room</option>
-                        <option value="Barangay Hall - Main Office">Main Office</option>
-                        <option value="Multipurpose Court">Multipurpose Court</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeModal('summonsModal')">Cancel</button>
-                <button class="btn btn-primary" onclick="addSummons()">Schedule</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Court Modal -->
-    <div class="modal-overlay" id="courtModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>🏟️ Book Court Slot</h3>
-                <button class="modal-close" onclick="closeModal('courtModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Your Name/Organization *</label>
-                    <input type="text" id="court-booker" placeholder="Name">
-                </div>
+            <div class="form-row">
                 <div class="form-group">
                     <label>Date *</label>
-                    <input type="date" id="court-date">
+                    <input type="date" id="summons-date">
                 </div>
                 <div class="form-group">
-                    <label>Time Slot *</label>
-                    <select id="court-timeslot">
-                        <option value="6:00 AM - 7:00 AM">6:00 AM - 7:00 AM</option>
-                        <option value="7:00 AM - 8:00 AM">7:00 AM - 8:00 AM</option>
-                        <option value="8:00 AM - 9:00 AM">8:00 AM - 9:00 AM</option>
-                        <option value="9:00 AM - 10:00 AM">9:00 AM - 10:00 AM</option>
-                        <option value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</option>
-                        <option value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</option>
-                        <option value="1:00 PM - 2:00 PM">1:00 PM - 2:00 PM</option>
-                        <option value="2:00 PM - 3:00 PM">2:00 PM - 3:00 PM</option>
-                        <option value="3:00 PM - 4:00 PM">3:00 PM - 4:00 PM</option>
-                        <option value="4:00 PM - 5:00 PM">4:00 PM - 5:00 PM</option>
-                        <option value="5:00 PM - 6:00 PM">5:00 PM - 6:00 PM</option>
-                        <option value="6:00 PM - 7:00 PM">6:00 PM - 7:00 PM</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Activity</label>
-                    <select id="court-activity">
-                        <option value="Basketball Practice">Basketball Practice</option>
-                        <option value="Volleyball Practice">Volleyball Practice</option>
-                        <option value="Barangay Event">Barangay Event</option>
-                        <option value="Tournament">Tournament</option>
-                        <option value="Exercise/Fitness">Exercise/Fitness</option>
-                        <option value="Other">Other</option>
-                    </select>
+                    <label>Time *</label>
+                    <input type="time" id="summons-time">
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" onclick="closeModal('courtModal')">Cancel</button>
-                <button class="btn btn-accent" onclick="bookCourt()">Book</button>
+            <div class="form-group">
+                <label>Location</label>
+                <select id="summons-location">
+                    <option value="Barangay Hall - Conference Room">Conference Room</option>
+                    <option value="Barangay Hall - Main Office">Main Office</option>
+                    <option value="Multipurpose Court">Multipurpose Court</option>
+                </select>
             </div>
+            <button class="btn btn-primary" onclick="addSummons()">Schedule Summons</button>
+            <button class="btn btn-outline" onclick="clearSummonsForm()">Cancel</button>
         </div>
+
+        <!-- Book Court Slot Section -->
+        <div class="section">
+            <h2>🏟️ Book Court Slot</h2>
+            <div class="form-group">
+                <label>Your Name/Organization *</label>
+                <input type="text" id="court-booker" placeholder="Name">
+            </div>
+            <div class="form-group">
+                <label>Date *</label>
+                <input type="date" id="court-date">
+            </div>
+            <div class="form-group">
+                <label>Time Slot *</label>
+                <select id="court-timeslot">
+                    <option value="6:00 AM - 7:00 AM">6:00 AM - 7:00 AM</option>
+                    <option value="7:00 AM - 8:00 AM">7:00 AM - 8:00 AM</option>
+                    <option value="8:00 AM - 9:00 AM">8:00 AM - 9:00 AM</option>
+                    <option value="9:00 AM - 10:00 AM">9:00 AM - 10:00 AM</option>
+                    <option value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</option>
+                    <option value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</option>
+                    <option value="1:00 PM - 2:00 PM">1:00 PM - 2:00 PM</option>
+                    <option value="2:00 PM - 3:00 PM">2:00 PM - 3:00 PM</option>
+                    <option value="3:00 PM - 4:00 PM">3:00 PM - 4:00 PM</option>
+                    <option value="4:00 PM - 5:00 PM">4:00 PM - 5:00 PM</option>
+                    <option value="5:00 PM - 6:00 PM">5:00 PM - 6:00 PM</option>
+                    <option value="6:00 PM - 7:00 PM">6:00 PM - 7:00 PM</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Activity</label>
+                <select id="court-activity">
+                    <option value="Basketball Practice">Basketball Practice</option>
+                    <option value="Volleyball Practice">Volleyball Practice</option>
+                    <option value="Barangay Event">Barangay Event</option>
+                    <option value="Tournament">Tournament</option>
+                    <option value="Exercise/Fitness">Exercise/Fitness</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <button class="btn btn-accent" onclick="bookCourt()">Book Slot</button>
+            <button class="btn btn-outline" onclick="clearCourtForm()">Cancel</button>
+        </div>
+
+        <!-- Logout Button -->
+        <div class="section" style="text-align:center;">
+            <button class="btn btn-outline" onclick="handleLogout()">🚪 Logout</button>
+        </div>
+
     </div>
 
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
-    <!-- Scripts -->
+    <!-- Firebase Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js"></script>
+
+    <!-- App JavaScript -->
+    <script>
+        // 🔑 FIREBASE CONFIGURATION - REPLACE WITH YOUR OWN
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Global state
+        let currentUser = null;
+
+        // ==================== AUTHENTICATION ====================
+
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('app-wrapper').style.display = 'block';
+                showToast(`Welcome, ${user.email}!`, 'success');
+            } else {
+                currentUser = null;
+                document.getElementById('auth-screen').style.display = 'block';
+                document.getElementById('app-wrapper').style.display = 'none';
+            }
+        });
+
+        function toggleAuthMode(mode) {
+            document.getElementById('login-form').style.display = mode === 'login' ? 'block' : 'none';
+            document.getElementById('signup-form').style.display = mode === 'signup' ? 'block' : 'none';
+            document.getElementById('auth-error').style.display = 'none';
+        }
+
+        async function handleSignup() {
+            const email = document.getElementById('signup-email').value.trim();
+            const password = document.getElementById('signup-password').value;
+            const fname = document.getElementById('signup-fname').value.trim();
+            const lname = document.getElementById('signup-lname').value.trim();
+            const purok = document.getElementById('signup-purok').value;
+
+            if (!email || password.length < 6 || !fname || !lname || !purok) {
+                showAuthError('Please fill all fields. Password must be 6+ characters.');
+                return;
+            }
+
+            try {
+                const cred = await auth.createUserWithEmailAndPassword(email, password);
+                await db.collection('profiles').doc(cred.user.uid).set({
+                    firstName: fname,
+                    lastName: lname,
+                    purok: purok,
+                    email: email,
+                    role: 'resident',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('Account created! Please verify your email.', 'success');
+            } catch (error) {
+                showAuthError(error.message);
+            }
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (!email || !password) {
+                showAuthError('Please enter email and password.');
+                return;
+            }
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+            } catch (error) {
+                showAuthError('Invalid email or password.');
+            }
+        }
+
+        async function handleLogout() {
+            await auth.signOut();
+            showToast('Logged out successfully.', 'success');
+        }
+
+        function showAuthError(message) {
+            const el = document.getElementById('auth-error');
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        // ==================== COMPLAINTS ====================
+
+        async function submitComplaint() {
+            const category = document.getElementById('complaint-category').value;
+            const title = document.getElementById('complaint-title').value.trim();
+            const description = document.getElementById('complaint-desc').value.trim();
+            const purok = document.getElementById('complaint-purok').value;
+
+            if (!category || !title || !description || !purok) {
+                showToast('Please fill all required fields.', 'warning');
+                return;
+            }
+
+            try {
+                await db.collection('complaints').add({
+                    userId: currentUser.uid,
+                    userName: currentUser.email,
+                    category,
+                    title,
+                    description,
+                    purok,
+                    status: 'pending',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showToast('Complaint filed successfully!', 'success');
+                clearComplaintForm();
+            } catch (error) {
+                showToast('Failed to submit complaint: ' + error.message, 'danger');
+            }
+        }
+
+        function clearComplaintForm() {
+            document.getElementById('complaint-category').value = '';
+            document.getElementById('complaint-title').value = '';
+            document.getElementById('complaint-desc').value = '';
+            document.getElementById('complaint-purok').value = '';
+        }
+
+        // ==================== SUMMONS ====================
+
+        async function addSummons() {
+            const complainantName = document.getElementById('summons-complainant').value.trim();
+            const respondentName = document.getElementById('summons-respondent').value.trim();
+            const caseTitle = document.getElementById('summons-case').value.trim();
+            const date = document.getElementById('summons-date').value;
+            const time = document.getElementById('summons-time').value;
+            const location = document.getElementById('summons-location').value;
+
+            if (!complainantName || !respondentName || !caseTitle || !date || !time) {
+                showToast('Please fill all required fields.', 'warning');
+                return;
+            }
+
+            try {
+                await db.collection('summons').add({
+                    complainantName,
+                    respondentName,
+                    caseTitle,
+                    date,
+                    time,
+                    location,
+                    status: 'confirmed',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showToast('Summons scheduled!', 'success');
+                clearSummonsForm();
+            } catch (error) {
+                showToast('Failed to schedule: ' + error.message, 'danger');
+            }
+        }
+
+        function clearSummonsForm() {
+            document.getElementById('summons-complainant').value = '';
+            document.getElementById('summons-respondent').value = '';
+            document.getElementById('summons-case').value = '';
+            document.getElementById('summons-date').value = '';
+            document.getElementById('summons-time').value = '';
+        }
+
+        // ==================== COURT BOOKINGS ====================
+
+        async function bookCourt() {
+            const bookerName = document.getElementById('court-booker').value.trim();
+            const date = document.getElementById('court-date').value;
+            const timeSlot = document.getElementById('court-timeslot').value;
+            const activity = document.getElementById('court-activity').value;
+
+            if (!bookerName || !date) {
+                showToast('Please enter name and select date.', 'warning');
+                return;
+            }
+
+            try {
+                const existing = await db.collection('courtBookings')
+                    .where('date', '==', date)
+                    .where('timeSlot', '==', timeSlot)
+                    .get();
+
+                if (!existing.empty) {
+                    showToast('This time slot is already booked.', 'danger');
+                    return;
+                }
+
+                await db.collection('courtBookings').add({
+                    userId: currentUser.uid,
+                    bookerName,
+                    date,
+                    timeSlot,
+                    activity,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showToast(`Court booked for ${bookerName}!`, 'success');
+                clearCourtForm();
+            } catch (error) {
+                showToast('Booking failed: ' + error.message, 'danger');
+            }
+        }
+
+        function clearCourtForm() {
+            document.getElementById('court-booker').value = '';
+            document.getElementById('court-date').value = '';
+        }
+
+        // ==================== UTILITIES ====================
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = {
+                success: '✅',
+                danger: '❌',
+                warning: '⚠️'
+            };
+            
+            toast.innerHTML = `${icons[type] || 'ℹ️'} ${message}`;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Set default date to today
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            const dateInputs = document.querySelectorAll('input[type="date"]');
+            dateInputs.forEach(input => {
+                if (!input.value) input.value = today;
+            });
+        });
+    </script>
 </body>
 </html>
