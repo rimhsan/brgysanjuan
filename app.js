@@ -724,3 +724,271 @@ window.saveProfileChanges = saveProfileChanges;
 window.changePassword = changePassword;
 window.saveNotificationSettings = saveNotificationSettings;
 window.viewMyComplaints = viewMyComplaints;
+
+// ==================== ANNOUNCEMENTS ====================
+async function loadAnnouncements() {
+    const container = document.getElementById('announcementsList');
+    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">Loading...</p>';
+    
+    try {
+        const snapshot = await db.collection('announcements').orderBy('createdAt', 'desc').get();
+        const announcements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (announcements.length === 0) {
+            container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">No announcements yet.</p>';
+            return;
+        }
+        
+        container.innerHTML = announcements.map(a => `
+            <div class="announcement-card">
+                <div class="announcement-header">
+                    <div>
+                        <span class="complaint-category cat-${a.category || 'general'}">
+                            ${getCategoryLabel(a.category)}
+                        </span>
+                        <div class="announcement-title">${escapeHtml(a.title)}</div>
+                    </div>
+                    ${userRole === 'admin' ? `
+                        <div class="announcement-actions">
+                            <button class="btn btn-sm btn-outline" onclick="editAnnouncement('${a.id}')">✏️ Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${a.id}')">🗑️ Delete</button>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="announcement-content">${escapeHtml(a.content)}</div>
+                <div class="announcement-meta">
+                    <span>📅 ${a.createdAt ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
+                    <span>👤 ${escapeHtml(a.createdBy || 'Barangay Admin')}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        container.innerHTML = `<p style="text-align:center; color:var(--danger);">Error loading announcements</p>`;
+    }
+}
+
+function openAnnouncementModal(editId = null) {
+    document.getElementById('announcement-modal-title').textContent = editId ? '✏️ Edit Announcement' : '📢 Add Announcement';
+    document.getElementById('announcement-edit-id').value = editId || '';
+    
+    if (editId) {
+        db.collection('announcements').doc(editId).get().then(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                document.getElementById('announcement-title').value = data.title || '';
+                document.getElementById('announcement-category').value = data.category || 'general';
+                document.getElementById('announcement-content').value = data.content || '';
+            }
+        });
+    } else {
+        document.getElementById('announcement-title').value = '';
+        document.getElementById('announcement-category').value = 'general';
+        document.getElementById('announcement-content').value = '';
+    }
+    
+    openModal('announcementModal');
+}
+
+async function saveAnnouncement() {
+    const title = document.getElementById('announcement-title').value.trim();
+    const category = document.getElementById('announcement-category').value;
+    const content = document.getElementById('announcement-content').value.trim();
+    const editId = document.getElementById('announcement-edit-id').value;
+    
+    if (!title || !content) {
+        showToast('Please fill title and content.', 'warning');
+        return;
+    }
+    
+    try {
+        const data = {
+            title, category, content,
+            updatedBy: currentUser.email,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        if (editId) {
+            await db.collection('announcements').doc(editId).update(data);
+            showToast('Announcement updated!', 'success');
+        } else {
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            data.createdBy = currentUser.email;
+            await db.collection('announcements').add(data);
+            showToast('Announcement posted!', 'success');
+        }
+        
+        closeModal('announcementModal');
+        loadAnnouncements();
+    } catch (error) {
+        showToast('Failed: ' + error.message, 'danger');
+    }
+}
+
+async function editAnnouncement(id) {
+    openAnnouncementModal(id);
+}
+
+async function deleteAnnouncement(id) {
+    if (!confirm('Delete this announcement?')) return;
+    try {
+        await db.collection('announcements').doc(id).delete();
+        showToast('Announcement deleted.', 'success');
+        loadAnnouncements();
+    } catch (error) {
+        showToast('Delete failed: ' + error.message, 'danger');
+    }
+}
+
+// ==================== ADMIN COURT MANAGEMENT ====================
+function openAdminCourtModal() {
+    document.getElementById('admin-court-date').value = new Date().toISOString().split('T')[0];
+    
+    // Populate time slots
+    const slotSelect = document.getElementById('admin-court-slot');
+    slotSelect.innerHTML = TIME_SLOTS.map(t => `<option value="${t}">${t}</option>`).join('');
+    
+    openModal('adminCourtModal');
+}
+
+async function adminBookCourt() {
+    const date = document.getElementById('admin-court-date').value;
+    const timeSlot = document.getElementById('admin-court-slot').value;
+    const bookerName = document.getElementById('admin-court-booker').value.trim() || 'Admin Override';
+    const activity = document.getElementById('admin-court-activity').value;
+    
+    if (!date) { showToast('Select a date.', 'warning'); return; }
+    
+    try {
+        // Check if exists
+        const existing = await db.collection('courtBookings')
+            .where('date', '==', date)
+            .where('timeSlot', '==', timeSlot)
+            .get();
+            
+        if (!existing.empty) {
+            // Override existing
+            await existing.docs[0].ref.update({
+                bookerName, activity,
+                updatedBy: currentUser.email,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showToast('Booking overridden!', 'success');
+        } else {
+            await db.collection('courtBookings').add({
+                userId: 'admin',
+                bookerName, date, timeSlot, activity,
+                createdBy: currentUser.email,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showToast('Slot booked by admin!', 'success');
+        }
+        
+        closeModal('adminCourtModal');
+        renderCourt(date);
+    } catch (error) {
+        showToast('Failed: ' + error.message, 'danger');
+    }
+}
+
+async function adminRemoveBooking() {
+    const date = document.getElementById('admin-court-date').value;
+    const timeSlot = document.getElementById('admin-court-slot').value;
+    
+    if (!date) { showToast('Select a date.', 'warning'); return; }
+    if (!confirm(`Remove booking for ${timeSlot} on ${date}?`)) return;
+    
+    try {
+        const snapshot = await db.collection('courtBookings')
+            .where('date', '==', date)
+            .where('timeSlot', '==', timeSlot)
+            .get();
+            
+        if (snapshot.empty) {
+            showToast('No booking found for this slot.', 'warning');
+            return;
+        }
+        
+        await snapshot.docs[0].ref.delete();
+        showToast('Booking removed.', 'success');
+        closeModal('adminCourtModal');
+        renderCourt(date);
+    } catch (error) {
+        showToast('Remove failed: ' + error.message, 'danger');
+    }
+}
+
+// ==================== ENHANCED COMPLAINT STATUS ====================
+// Replace your existing renderComplaints function with this:
+async function renderComplaints(filter = 'all', elementId = 'complaintList') {
+    const container = document.getElementById(elementId);
+    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">Loading...</p>';
+    
+    const complaints = await fetchComplaints();
+    const filtered = filter === 'all' ? complaints : complaints.filter(c => c.status === filter);
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">No complaints found.</p>';
+        return;
+    }
+    
+    container.innerHTML = filtered.map(c => `
+        <div class="complaint-item">
+            <div class="complaint-header">
+                <span class="complaint-category ${categoryConfig[c.category]?.class || 'cat-other'}">
+                    ${categoryConfig[c.category]?.label || '📌 Other'}
+                </span>
+                ${userRole === 'admin' ? `
+                    <select class="status-dropdown" onchange="updateComplaintStatus('${c.id}', this.value)">
+                        <option value="pending" ${c.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                        <option value="progress" ${c.status === 'progress' ? 'selected' : ''}>🔄 In Progress</option>
+                        <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>✅ Resolved</option>
+                    </select>
+                ` : `
+                    <span class="status-badge ${statusConfig[c.status]?.class || 'status-pending'}">
+                        <span class="status-dot"></span> ${statusConfig[c.status]?.label || 'Pending'}
+                    </span>
+                `}
+            </div>
+            <div class="complaint-title">${escapeHtml(c.title)}</div>
+            <div class="complaint-desc">${escapeHtml(c.description)}</div>
+            <div class="complaint-meta">
+                <span>👤 ${escapeHtml(c.userName || 'Unknown')}</span>
+                <span>📍 ${escapeHtml(c.purok)}</span>
+                <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ==================== INITIALIZE ADMIN UI ====================
+async function initializeApp() {
+    await updateStats();
+    await renderComplaints('all', 'complaintList');
+    await loadRecentComplaints();
+    await loadActivityTimeline();
+    await renderResidents();
+    await renderSummons();
+    await loadAnnouncements(); // NEW
+    
+    // Show admin buttons
+    if (userRole === 'admin') {
+        document.getElementById('add-announcement-btn').style.display = 'inline-flex';
+        document.getElementById('admin-court-btn').style.display = 'inline-flex';
+        document.getElementById('schedule-summons-btn').style.display = 'inline-flex';
+    }
+    
+    const today = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('input[type="date"]').forEach(input => { 
+        if (!input.value) input.value = today; 
+    });
+}
+
+// Expose new functions globally
+window.openAnnouncementModal = openAnnouncementModal;
+window.saveAnnouncement = saveAnnouncement;
+window.editAnnouncement = editAnnouncement;
+window.deleteAnnouncement = deleteAnnouncement;
+window.openAdminCourtModal = openAdminCourtModal;
+window.adminBookCourt = adminBookCourt;
+window.adminRemoveBooking = adminRemoveBooking;
+window.loadAnnouncements = loadAnnouncements;
