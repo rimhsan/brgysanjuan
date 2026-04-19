@@ -462,7 +462,7 @@ async function addSummons() {
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
-/// ==================== COURT FUNCTIONS ====================
+// ==================== COURT FUNCTIONS ====================
 
 // Operating Hours
 const OPEN_HOUR = 6;  // 6 AM
