@@ -6,6 +6,29 @@
     <title>Court Schedule - Barangay San Juan</title>
     <link rel="stylesheet" href="styles.css">
     <style>
+    .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: white;
+}
+
+.profile-dropdown {
+    position: absolute !important;
+    top: 60px !important;
+    right: 20px !important;
+    z-index: 9999 !important;
+    display: none;
+}
+
+.profile-dropdown.show {
+    display: block !important;
+}
+
+.calendar-grid {
+    position: relative;
+    z-index: 1;
+}
     /* Calendar Specific Styles */
     .calendar-header {
         display: flex;
@@ -128,37 +151,37 @@
     display: none;
     z-index: 1000; /* CRITICAL: Higher than calendar */
     overflow: hidden;
-}
-
-.profile-dropdown.show { 
-    display: block; 
-    animation: slideDown 0.2s ease; 
-}
-
-/* FIX: Ensure topbar-right has proper positioning context */
-.topbar-right {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    z-index: 100; /* Higher than content */
-}
-
-/* FIX: Calendar should not overlap dropdown */
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 6px;
-    min-width: 100%;
-    position: relative;
-    z-index: 1; /* Lower than dropdown */
-}
-
-/* Animation */
-@keyframes slideDown { 
-    from { opacity: 0; transform: translateY(-8px); } 
-    to { opacity: 1; transform: translateY(0); } 
-}
+    }
+    
+    .profile-dropdown.show { 
+        display: block; 
+        animation: slideDown 0.2s ease; 
+    }
+    
+    /* FIX: Ensure topbar-right has proper positioning context */
+    .topbar-right {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        z-index: 100; /* Higher than content */
+    }
+    
+    /* FIX: Calendar should not overlap dropdown */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+        min-width: 100%;
+        position: relative;
+        z-index: 1; /* Lower than dropdown */
+    }
+    
+    /* Animation */
+    @keyframes slideDown { 
+        from { opacity: 0; transform: translateY(-8px); } 
+        to { opacity: 1; transform: translateY(0); } 
+    }
     
     /* MOBILE OPTIMIZATIONS */
     @media (max-width: 768px) {
