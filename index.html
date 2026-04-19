@@ -31,51 +31,47 @@
     <!-- Main Content -->
     <div class="main">
         <div class="topbar">
-            <div class="topbar-left">
-                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-                <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
+    <div class="topbar-left">
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
+    </div>
+    <div class="topbar-right">
+        <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+        
+        <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
+            <div class="user-avatar" id="user-avatar">NO</div>
+            <div class="user-info-brief">
+                <span class="user-name" id="user-name">Nashmir Akon Olivares</span>
+                <span class="user-role" id="user-role">Resident</span>
             </div>
-            <div class="topbar-right">
-                <button class="notification-btn">🔔<span class="notification-badge"></span></button>
-                
-                <div class="user-profile" onclick="toggleAccountDropdown()" style="cursor:pointer;display:flex;align-items:center;gap:10px;">
-                    <div class="user-avatar" id="user-avatar" style="width:40px;height:40px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;">JD</div>
-                    <div class="user-info" style="line-height:1.2;">
-                        <div class="name" id="user-name" style="font-size:14px;font-weight:600;">Loading...</div>
-                        <div class="role" id="user-role" style="font-size:11px;color:var(--text-light);">Resident</div>
-                    </div>
-                    <span style="font-size:10px;">▼</span>
-                </div>
-            
-                <!-- Simple Dropdown -->
-                <div class="account-dropdown" id="accountDropdown" style="position:absolute;top:65px;right:20px;background:white;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.15);border:1px solid var(--border);min-width:280px;display:none;z-index:1000;">
-                    <div style="padding:20px;background:linear-gradient(135deg,var(--primary),var(--primary-light));color:white;border-radius:12px 12px 0 0;">
-                        <div style="display:flex;align-items:center;gap:12px;">
-                            <div id="dropdown-avatar" style="width:50px;height:50px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;">JD</div>
-                            <div>
-                                <div id="dropdown-name" style="font-weight:600;font-size:15px;">User Name</div>
-                                <div id="dropdown-email" style="font-size:12px;opacity:0.9;">email</div>
-                                <div id="dropdown-role" style="font-size:11px;background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:10px;display:inline-block;margin-top:4px;">Resident</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="padding:8px;">
-                        <button onclick="window.location.href='account.html'" style="width:100%;padding:12px;border:none;background:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:14px;text-align:left;">
-                            <span style="font-size:18px;">👤</span>
-                            <div>
-                                <div style="font-weight:600;">My Account</div>
-                                <div style="font-size:11px;color:var(--text-light);">Profile, Security & Complaints</div>
-                            </div>
-                        </button>
-                    </div>
-                    <div style="border-top:1px solid var(--border);padding:8px;">
-                        <button onclick="handleLogout()" style="width:100%;padding:12px;border:none;background:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:14px;color:var(--danger);text-align:left;">
-                            <span style="font-size:18px;">🚪</span>
-                            <span style="font-weight:600;">Sign Out</span>
-                        </button>
-                    </div>
+            <span class="dropdown-arrow">▼</span>
+        </div>
+
+        <!-- Fixed Position Dropdown -->
+        <div class="profile-dropdown" id="profileDropdown">
+            <div class="dropdown-header">
+                <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
+                <div class="dropdown-details">
+                    <div class="dropdown-name" id="dropdown-name">Nashmir Akon Olivares</div>
+                    <div class="dropdown-email" id="dropdown-email">rimhsan.info@gmail.com</div>
+                    <span class="dropdown-role-tag" id="dropdown-role-tag">Resident</span>
                 </div>
             </div>
+            <div class="dropdown-body">
+                <a href="account.html" class="dropdown-link">
+                    <span class="link-icon">👤</span>
+                    <div class="link-text">
+                        <span class="link-title">My Account</span>
+                        <span class="link-desc">Profile, Security & Complaints</span>
+                    </div>
+                </a>
+            </div>
+            <div class="dropdown-footer">
+                <button class="logout-btn" onclick="handleLogout()">🚪 Sign Out</button>
+            </div>
+        </div>
+    </div>
+</div>
 
         <div class="content">
             <h1 class="page-title">Dashboard</h1>
