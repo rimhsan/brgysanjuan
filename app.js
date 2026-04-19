@@ -857,3 +857,43 @@ window.saveAccountProfile = saveAccountProfile;
 window.changeAccountPassword = changeAccountPassword;
 window.saveNotifPrefs = saveNotifPrefs;
 window.loadAccountPage = loadAccountPage;
+function toggleAccountDropdown() {
+    const dropdown = document.getElementById('accountDropdown');
+    if (dropdown) {
+        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('accountDropdown');
+    const profile = document.querySelector('.user-profile');
+    if (dropdown && profile && !profile.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.style.display = 'none';
+    }
+});
+
+async function loadUserProfile() {
+    if (!currentUser) return;
+    try {
+        const doc = await db.collection('profiles').doc(currentUser.uid).get();
+        if (doc.exists) {
+            const data = doc.data();
+            const name = `${data.firstName} ${data.lastName}`;
+            const initials = `${data.firstName[0]}${data.lastName[0]}`.toUpperCase();
+            
+            // Update elements safely
+            const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+            
+            setText('user-name', name);
+            setText('user-avatar', initials);
+            setText('dropdown-name', name);
+            setText('dropdown-email', data.email);
+            setText('dropdown-avatar', initials);
+            setText('dropdown-role', data.role === 'admin' ? 'Admin' : 'Resident');
+            setText('user-role', data.role === 'admin' ? 'Admin' : 'Resident');
+        }
+    } catch (error) {
+        console.error("Profile load error:", error);
+    }
+}
