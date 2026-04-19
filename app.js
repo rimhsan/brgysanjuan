@@ -462,136 +462,263 @@ async function addSummons() {
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
-// ==================== COURT FUNCTIONS ====================
+/// ==================== COURT FUNCTIONS ====================
 
+// Operating Hours
+const OPEN_HOUR = 6;  // 6 AM
+const CLOSE_HOUR = 19; // 7 PM
+
+// Render the schedule list (Read Only)
 async function renderCourt(selectedDate = new Date().toISOString().split('T')[0]) {
     const container = document.getElementById('courtSchedule');
-    const timeline = document.getElementById('court-timeline');
-    const dateTitle = document.getElementById('courtDateTitle');
     const datePicker = document.getElementById('court-date-picker');
     
-    if (!container) return;
+    if (!container) return; // Safety check
+    if (datePicker) datePicker.value = selectedDate;
     
-    container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">⏳ Loading...</p>';
-    if (timeline) timeline.innerHTML = ''; // Clear timeline
+    container.innerHTML = '<p style="text-align:center; padding:20px;">⏳ Loading...</p>';
     
     try {
-        if (datePicker) datePicker.value = selectedDate;
-        if (dateTitle) dateTitle.textContent = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        // Fetch bookings for the date
+        const snapshot = await db.collection('courtBookings').where('date', '==', selectedDate).get();
+        const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        const snap = await db.collection('courtBookings').where('date', '==', selectedDate).get();
-        const bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Sort bookings by start time
+        bookings.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
         
-        // Render Grid
-        const bookedMap = new Map(bookings.map(b => [b.startTime || b.timeSlot?.split(' - ')[0], b]));
+        if (bookings.length === 0) {
+            container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">No bookings for this day. Court is open!</p>';
+            return;
+        }
         
-        // Simple Grid View for now (Custom Time logic is complex, sticking to slots for stability)
-        // If you want custom time, you need to implement the overlap logic carefully.
-        // For now, let's just show the slots that are taken.
-        
-        container.innerHTML = TIME_SLOTS.map(slot => {
-            // Check if any booking overlaps this slot (simplified check)
-            const isBooked = bookings.some(b => {
-                const bStart = b.startTime || b.timeSlot?.split(' - ')[0];
-                const bEnd = b.endTime || b.timeSlot?.split(' - ')[1];
-                // Simple string match for demo, real app needs minute conversion
-                return bStart === slot.split(' - ')[0]; 
-            });
-            
-            const booking = bookings.find(b => b.startTime === slot.split(' - ')[0]);
-            
+        // Render List
+        container.innerHTML = bookings.map(b => {
+            const isUser = !b.isAdminBooking;
+            const timeDisplay = (b.startTime && b.endTime) 
+                ? `${formatTime(b.startTime)} - ${formatTime(b.endTime)}` 
+                : (b.timeSlot || 'All Day');
+                
             return `
-                <div class="schedule-slot ${isBooked ? (booking?.isAdminBooking ? 'admin-booked' : 'booked') : 'available'}"
-                     ${!isBooked ? `onclick="openBookingModal('${selectedDate}', '${slot.split(' - ')[0]}', '${slot.split(' - ')[1]}')"` : ''}>
-                    <div class="slot-time">${slot}</div>
-                    <div class="slot-status">${isBooked ? 'Booked' : 'Available'}</div>
-                    ${isBooked ? `<div class="slot-booker"><strong>${escapeHtml(booking.bookerName)}</strong>${escapeHtml(booking.activity)}</div>` : '<div class="slot-cta">📅 Click to Book</div>'}
+                <div class="schedule-item ${isUser ? 'booked' : 'admin-booked'}">
+                    <div class="item-time">${timeDisplay}</div>
+                    <div class="item-details">
+                        <div class="booker">${escapeHtml(b.bookerName)}</div>
+                        <div class="activity">${escapeHtml(b.activity)}</div>
+                    </div>
+                    <div class="item-status">${isUser ? 'Reserved' : 'Admin'}</div>
                 </div>
             `;
         }).join('');
         
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = '<p style="color:red">Error loading schedule.</p>';
+    } catch (error) {
+        console.error("Render Court Error:", error);
+        container.innerHTML = '<p style="text-align:center; color:var(--danger);">Error loading schedule.</p>';
     }
 }
 
-function openBookingModal(date, start, end) {
-    const dInput = document.getElementById('court-date');
-    const sInput = document.getElementById('court-start-time');
-    const eInput = document.getElementById('court-end-time');
-    
-    if(dInput) dInput.value = date;
-    if(sInput) sInput.value = start;
-    if(eInput) eInput.value = end;
-    
-    openModal('courtModal');
-}
-
+// Handle Manual Booking Submission
 async function bookCourt() {
     const name = document.getElementById('court-booker')?.value.trim();
     const date = document.getElementById('court-date')?.value;
     const start = document.getElementById('court-start-time')?.value;
     const end = document.getElementById('court-end-time')?.value;
-    const act = document.getElementById('court-activity')?.value;
+    const activity = document.getElementById('court-activity')?.value;
     
-    if (!name || !date || !start || !end) { showToast('Fill all fields.', 'warning'); return; }
+    // Validation
+    if (!name || !date || !start || !end) {
+        showToast('Please fill in all required fields.', 'warning');
+        return;
+    }
+    
+    if (start >= end) {
+        showToast('End time must be after start time.', 'warning');
+        return;
+    }
+    
+    // Check hours (6AM to 7PM)
+    const startH = parseInt(start.split(':')[0]);
+    const endH = parseInt(end.split(':')[0]);
+    if (startH < OPEN_HOUR || endH > CLOSE_HOUR) {
+        showToast(`Court hours are ${OPEN_HOUR}:00 AM to ${CLOSE_HOUR}:00 PM`, 'warning');
+        return;
+    }
     
     try {
-        // Basic overlap check would go here
+        // Check for Overlaps
+        const existing = await db.collection('courtBookings').where('date', '==', date).get();
+        
+        let hasOverlap = false;
+        existing.forEach(doc => {
+            const b = doc.data();
+            // Convert to minutes for easy comparison
+            const reqStart = toMinutes(start);
+            const reqEnd = toMinutes(end);
+            const bStart = toMinutes(b.startTime);
+            const bEnd = toMinutes(b.endTime);
+            
+            if (bStart && bEnd) {
+                // Overlap logic: (StartA < EndB) and (EndA > StartB)
+                if (reqStart < bEnd && reqEnd > bStart) {
+                    hasOverlap = true;
+                }
+            }
+        });
+        
+        if (hasOverlap) {
+            showToast('Time slot overlaps with an existing booking!', 'danger');
+            return;
+        }
+        
+        // Save Booking
         await db.collection('courtBookings').add({
-            userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity: act,
+            userId: currentUser.uid,
+            userName: currentUser.email, // For admin reference
+            bookerName: name,
+            date: date,
+            startTime: start,
+            endTime: end,
+            activity: activity,
+            isAdminBooking: false,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        
         closeModal('courtModal');
-        showToast('Booked!', 'success');
+        showToast('Booking Confirmed!', 'success');
+        
+        // Refresh View
         renderCourt(date);
-    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
+        
+        // Clear Form
+        document.getElementById('court-booker').value = '';
+        
+    } catch (error) {
+        console.error("Booking Error:", error);
+        showToast('Failed to book: ' + error.message, 'danger');
+    }
 }
 
+// Filter Buttons
 function filterCourt(period, btn) {
     document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-    if(btn) btn.classList.add('active');
-    let d = new Date();
-    if (period === 'tomorrow') d.setDate(d.getDate() + 1);
+    btn.classList.add('active');
+    
+    let target = new Date();
+    if (period === 'tomorrow') target.setDate(target.getDate() + 1);
+    
+    renderCourt(target.toISOString().split('T')[0]);
+}
+
+// Date Picker Arrows
+function changeDate(days) {
+    const picker = document.getElementById('court-date-picker');
+    if (!picker) return;
+    const d = new Date(picker.value);
+    d.setDate(d.getDate() + days);
     renderCourt(d.toISOString().split('T')[0]);
 }
 
-function changeDate(days) {
-    const p = document.getElementById('court-date-picker');
-    if (!p) return;
-    const d = new Date(p.value);
-    d.setDate(d.getDate() + days);
-    p.value = d.toISOString().split('T')[0];
-    renderCourt(p.value);
-}
-
-// Admin Court Functions (Simplified for stability)
+// Admin Functions
 function openAdminCourtModal() {
     if (userRole !== 'admin') return;
+    const dateInput = document.getElementById('admin-court-date');
+    if(dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    loadAdminList();
     openModal('adminCourtModal');
-    // Pre-fill date
-    const d = document.getElementById('admin-court-date');
-    if(d) d.value = new Date().toISOString().split('T')[0];
 }
 
-async function adminBookCourt() {
-    // Implement admin booking logic similar to user but with override capabilities
-    showToast('Admin booking feature coming soon.', 'warning');
-    closeModal('adminCourtModal');
+async function loadAdminList() {
+    const container = document.getElementById('admin-court-list');
+    const date = document.getElementById('admin-court-date')?.value;
+    if (!container || !date) return;
+    
+    container.innerHTML = 'Loading...';
+    try {
+        const snap = await db.collection('courtBookings').where('date', '==', date).get();
+        const list = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        
+        if (list.length === 0) {
+            container.innerHTML = 'No bookings.';
+            return;
+        }
+        
+        container.innerHTML = list.map(b => `
+            <div style="padding:8px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; font-size:14px;">
+                <span>${b.startTime} - ${b.endTime}: <strong>${b.bookerName}</strong></span>
+                <button onclick="deleteBooking('${b.id}', '${date}')" style="color:red; background:none; border:none; cursor:pointer;">✕</button>
+            </div>
+        `).join('');
+    } catch(e) { container.innerHTML = 'Error'; }
 }
 
-async function adminRemoveBooking() {
-    showToast('Admin remove feature coming soon.', 'warning');
+async function deleteBooking(id, date) {
+    if(!confirm('Delete this booking?')) return;
+    try {
+        await db.collection('courtBookings').doc(id).delete();
+        showToast('Deleted', 'success');
+        loadAdminList(); // Refresh list
+        renderCourt(date); // Refresh main view
+    } catch(e) { showToast('Error', 'danger'); }
 }
 
-async function loadAdminCourtList(date) {
-    const c = document.getElementById('admin-court-list');
-    if(!c) return;
-    c.innerHTML = '<p style="text-align:center;font-size:12px;">Loading...</p>';
-    // Implement list loading
+async function adminClearDay() {
+    const date = document.getElementById('admin-court-date')?.value;
+    if (!date || !confirm(`Delete ALL bookings for ${date}?`)) return;
+    
+    try {
+        const snap = await db.collection('courtBookings').where('date', '==', date).get();
+        const batch = db.batch();
+        snap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        showToast('Day cleared', 'success');
+        loadAdminList();
+        renderCourt(date);
+    } catch(e) { showToast('Error', 'danger'); }
 }
 
+// Helpers
+function formatTime(timeStr) {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':');
+    const hour = parseInt(h);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const h12 = hour % 12 || 12;
+    return `${h12}:${m} ${ampm}`;
+}
+
+function toMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h * 60) + m;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Expose global functions for HTML onclick events
+window.renderCourt = renderCourt;
+window.bookCourt = bookCourt;
+window.filterCourt = filterCourt;
+window.changeDate = changeDate;
+window.openAdminCourtModal = openAdminCourtModal;
+window.loadAdminList = loadAdminList;
+window.deleteBooking = deleteBooking;
+window.adminClearDay = adminClearDay;
+window.openModal = function(id) { document.getElementById(id).classList.add('show'); };
+window.closeModal = function(id) { document.getElementById(id).classList.remove('show'); };
+window.saveProfileChanges = async function() {
+    const fn = document.getElementById('edit-first-name')?.value;
+    const ln = document.getElementById('edit-last-name')?.value;
+    if(fn && ln) {
+        try {
+            await db.collection('profiles').doc(currentUser.uid).update({ firstName: fn, lastName: ln });
+            showToast('Saved!', 'success');
+            window.closeModal('accountModal');
+            document.getElementById('user-name').textContent = `${fn} ${ln}`;
+        } catch(e) { showToast('Error', 'danger'); }
+    }
+};
 // ==================== UTILS ====================
 function stringToColor(str) {
     let hash = 0;
