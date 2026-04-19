@@ -164,58 +164,46 @@
         </nav>
     </aside>
 
-    <!-- Main Content -->
-<div class="topbar-right">
-    <button class="notification-btn">🔔<span class="notification-badge"></span></button>
-    
-    <div class="user-profile-trigger" onclick="toggleAccountDropdown()">
-        <div class="user-info-brief">
-            <span class="user-role-badge" id="user-role-badge">Resident</span>
-            <span class="user-name-brief" id="user-name-brief">Loading...</span>
-        </div>
-        <div class="user-avatar" id="user-avatar">JD</div>
-        <span class="dropdown-arrow">▼</span>
+<div class="topbar">
+    <div class="topbar-left">
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
     </div>
+    <div class="topbar-right">
+        <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+        
+        <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
+            <div class="user-avatar" id="user-avatar">NO</div>
+            <div class="user-info-brief">
+                <span class="user-name" id="user-name">Nashmir Akon Olivares</span>
+                <span class="user-role" id="user-role">Resident</span>
+            </div>
+            <span class="dropdown-arrow">▼</span>
+        </div>
 
-    <!-- Redesigned Profile Dropdown -->
-    <div class="profile-dropdown" id="accountDropdown">
-        <div class="dropdown-profile-header">
-            <div class="dropdown-avatar" id="dropdown-avatar">JD</div>
-            <div class="dropdown-user-info">
-                <h4 id="dropdown-name">User Name</h4>
-                <p id="dropdown-email">user@example.com</p>
-                <span class="role-tag" id="dropdown-role">Resident</span>
+        <!-- Fixed Position Dropdown -->
+        <div class="profile-dropdown" id="profileDropdown">
+            <div class="dropdown-header">
+                <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
+                <div class="dropdown-details">
+                    <div class="dropdown-name" id="dropdown-name">Nashmir Akon Olivares</div>
+                    <div class="dropdown-email" id="dropdown-email">rimhsan.info@gmail.com</div>
+                    <span class="dropdown-role-tag" id="dropdown-role-tag">Resident</span>
+                </div>
+            </div>
+            <div class="dropdown-body">
+                <a href="account.html" class="dropdown-link">
+                    <span class="link-icon">👤</span>
+                    <div class="link-text">
+                        <span class="link-title">My Account</span>
+                        <span class="link-desc">Profile, Security & Complaints</span>
+                    </div>
+                </a>
+            </div>
+            <div class="dropdown-footer">
+                <button class="logout-btn" onclick="handleLogout()">🚪 Sign Out</button>
             </div>
         </div>
-        <div class="dropdown-divider"></div>
-        <div class="dropdown-menu-list">
-            <button class="dropdown-menu-item" onclick="openAccountModal()">
-                <span class="menu-icon">👤</span>
-                <div class="menu-text">
-                    <span class="menu-title">My Profile</span>
-                    <span class="menu-desc">View & edit your info</span>
-                </div>
-            </button>
-            <button class="dropdown-menu-item" onclick="openAccountSettings()">
-                <span class="menu-icon">⚙️</span>
-                <div class="menu-text">
-                    <span class="menu-title">Account Settings</span>
-                    <span class="menu-desc">Security & preferences</span>
-                </div>
-            </button>
-            <button class="dropdown-menu-item" onclick="viewMyComplaints()">
-                <span class="menu-icon">📋</span>
-                <div class="menu-text">
-                    <span class="menu-title">My Complaints</span>
-                    <span class="menu-desc">Track your submissions</span>
-                </div>
-            </button>
-        </div>
-        <div class="dropdown-divider"></div>
-        <button class="dropdown-menu-item logout-item" onclick="handleLogout()">
-            <span class="menu-icon">🚪</span>
-            <span class="menu-title">Sign Out</span>
-        </button>
     </div>
 </div>
 
