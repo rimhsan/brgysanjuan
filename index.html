@@ -35,35 +35,47 @@
                 <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
                 <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
             </div>
-            <div class="topbar-right">
-                <button class="notification-btn">🔔<span class="notification-badge"></span></button>
-                <div class="user-profile" onclick="toggleAccountDropdown()">
-                    <div class="user-avatar" id="user-avatar">JD</div>
-                    <div class="user-info">
-                        <div class="name" id="user-name">Loading...</div>
-                        <div class="role" id="user-role">Resident</div>
-                    </div>
-                </div>
-                
-                <!-- Account Dropdown -->
-                <div class="account-dropdown" id="accountDropdown">
-                    <div class="dropdown-header">
-                        <div class="dropdown-avatar" id="dropdown-avatar">JD</div>
-                        <div class="dropdown-info">
-                            <div class="dropdown-name" id="dropdown-name">User Name</div>
-                            <div class="dropdown-email" id="dropdown-email">user@example.com</div>
-                        </div>
-                    </div>
-                    <div class="dropdown-menu">
-                        <button class="dropdown-item" onclick="openAccountModal()"><span class="dropdown-icon">👤</span>My Profile</button>
-                        <button class="dropdown-item" onclick="openAccountSettings()"><span class="dropdown-icon">⚙️</span>Account Settings</button>
-                        <button class="dropdown-item" onclick="viewMyComplaints()"><span class="dropdown-icon">📋</span>My Complaints</button>
-                        <div class="dropdown-divider"></div>
-                        <button class="dropdown-item logout" onclick="handleLogout()"><span class="dropdown-icon">🚪</span>Logout</button>
-                    </div>
-                </div>
+<div class="topbar-right">
+    <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+    
+    <!-- New Profile Trigger -->
+    <div class="user-profile-trigger" onclick="toggleAccountDropdown()">
+        <div class="user-info-brief">
+            <span class="user-role-badge" id="user-role-badge">Resident</span>
+            <span class="user-name-brief" id="user-name-brief">Loading...</span>
+        </div>
+        <div class="user-avatar" id="user-avatar">JD</div>
+        <span class="dropdown-arrow">▼</span>
+    </div>
+
+    <!-- New Dropdown pointing to account.html -->
+    <div class="profile-dropdown" id="accountDropdown">
+        <div class="dropdown-profile-header">
+            <div class="dropdown-avatar" id="dropdown-avatar">JD</div>
+            <div class="dropdown-user-info">
+                <h4 id="dropdown-name">User Name</h4>
+                <p id="dropdown-email">user@example.com</p>
+                <span class="role-tag" id="dropdown-role">Resident</span>
             </div>
         </div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-menu-list">
+            <!-- Single link to the new unified page -->
+            <button class="dropdown-menu-item" onclick="window.location.href='account.html'">
+                <span class="menu-icon">👤</span>
+                <div class="menu-text">
+                    <span class="menu-title">My Account</span>
+                    <span class="menu-desc">Profile, Security & Complaints</span>
+                </div>
+            </button>
+        </div>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-menu-item logout-item" onclick="handleLogout()">
+            <span class="menu-icon">🚪</span>
+            <span class="menu-title">Sign Out</span>
+        </button>
+    </div>
+</div>
 
         <div class="content">
             <h1 class="page-title">Dashboard</h1>
