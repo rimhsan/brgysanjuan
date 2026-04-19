@@ -5,6 +5,200 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Court Schedule - Barangay San Juan</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Court Schedule Specific Styles */
+        .court-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .date-selector {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: 1.5px solid var(--border);
+        }
+        
+        .date-selector input {
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            background: transparent;
+            cursor: pointer;
+        }
+        
+        .date-selector button {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--primary);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        
+        .date-selector button:hover {
+            background: var(--bg);
+        }
+        
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        
+        .schedule-slot {
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .schedule-slot:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .schedule-slot.available {
+            border-color: var(--success);
+            background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%);
+        }
+        
+        .schedule-slot.available:hover {
+            border-color: var(--primary-light);
+            background: linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%);
+        }
+        
+        .schedule-slot.booked {
+            border-color: var(--danger);
+            background: #fff5f5;
+            opacity: 0.9;
+            cursor: not-allowed;
+        }
+        
+        .schedule-slot.admin-booked {
+            border-color: var(--accent);
+            background: #fff9e6;
+        }
+        
+        .slot-time {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+        
+        .slot-status {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+        
+        .available .slot-status {
+            background: var(--success);
+            color: white;
+        }
+        
+        .booked .slot-status {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .admin-booked .slot-status {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .slot-booker {
+            font-size: 13px;
+            color: var(--text-light);
+            line-height: 1.4;
+            flex-grow: 1;
+        }
+        
+        .slot-booker strong {
+            color: var(--text);
+            display: block;
+            margin-bottom: 2px;
+        }
+        
+        .slot-cta {
+            font-size: 12px;
+            color: var(--primary);
+            font-weight: 600;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        
+        .available .slot-cta {
+            color: var(--success);
+        }
+        
+        .booked .slot-cta {
+            color: var(--danger);
+        }
+        
+        /* Clickable overlay for available slots */
+        .schedule-slot.available::after {
+            content: '📅 Click to Book';
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        
+        .schedule-slot.available:hover::after {
+            opacity: 1;
+        }
+        
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .schedule-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .court-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .date-selector {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Sidebar -->
@@ -67,28 +261,38 @@
 
         <div class="content">
             <h1 class="page-title">Multipurpose Court Schedule</h1>
-            <p class="page-subtitle">View and book time slots for the Barangay Multipurpose Court.</p>
+            <p class="page-subtitle">Click an available time slot to book, or use the button below.</p>
             
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+            <!-- Court Header with Date Selector -->
+            <div class="court-header">
                 <div class="filter-tabs">
                     <button class="filter-tab active" onclick="filterCourt('today', this)">Today</button>
                     <button class="filter-tab" onclick="filterCourt('tomorrow', this)">Tomorrow</button>
                     <button class="filter-tab" onclick="filterCourt('week', this)">This Week</button>
                 </div>
-                <div style="display:flex; gap:10px;">
+                
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div class="date-selector">
+                        <button onclick="changeDate(-1)">◀</button>
+                        <input type="date" id="court-date-picker" onchange="renderCourt(this.value)">
+                        <button onclick="changeDate(1)">▶</button>
+                    </div>
                     <button class="btn btn-accent" id="admin-court-btn" style="display:none;" onclick="openAdminCourtModal()">⚙️ Manage</button>
-                    <button class="btn btn-accent" onclick="openModal('courtModal')">📅 Book a Slot</button>
                 </div>
             </div>
             
-            <!-- Court Schedule Display -->
+            <!-- Court Schedule Grid -->
             <div class="card">
-                <div class="card-header">
-                    <h3 id="courtDateTitle">Today's Schedule</h3>
-                </div>
                 <div class="card-body">
-                    <div class="schedule-grid" id="courtSchedule"></div>
+                    <div class="schedule-grid" id="courtSchedule">
+                        <p style="text-align:center; padding:40px; color:#7f8c8d; grid-column:1/-1;">⏳ Loading schedule...</p>
+                    </div>
                 </div>
+            </div>
+            
+            <!-- Quick Book Button (fallback) -->
+            <div style="text-align:center; margin-top:20px;">
+                <button class="btn btn-outline" onclick="openModal('courtModal')">📅 Manual Booking</button>
             </div>
         </div>
     </div>
@@ -103,7 +307,7 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label>Your Name/Organization *</label>
-                    <input type="text" id="court-booker" placeholder="Name">
+                    <input type="text" id="court-booker" placeholder="Name or Team Name">
                 </div>
                 <div class="form-group">
                     <label>Date *</label>
@@ -112,6 +316,7 @@
                 <div class="form-group">
                     <label>Time Slot *</label>
                     <select id="court-timeslot">
+                        <option value="">Select a time slot...</option>
                         <option value="6:00 AM - 7:00 AM">6:00 AM - 7:00 AM</option>
                         <option value="7:00 AM - 8:00 AM">7:00 AM - 8:00 AM</option>
                         <option value="8:00 AM - 9:00 AM">8:00 AM - 9:00 AM</option>
@@ -137,15 +342,18 @@
                         <option value="Other">Other</option>
                     </select>
                 </div>
+                <div class="form-group" style="background:#f0f9ff; padding:12px; border-radius:8px; border-left:4px solid var(--primary-light);">
+                    <small style="color:var(--text-light);">💡 <strong>Tip:</strong> You can also click any available time slot above to book directly!</small>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeModal('courtModal')">Cancel</button>
-                <button class="btn btn-accent" onclick="bookCourt()">Book</button>
+                <button class="btn btn-accent" onclick="bookCourt()">Confirm Booking</button>
             </div>
         </div>
     </div>
 
-    <!-- Admin Court Management Modal (Improved) -->
+    <!-- Admin Court Management Modal -->
     <div class="modal-overlay" id="adminCourtModal">
         <div class="modal">
             <div class="modal-header">
@@ -179,7 +387,7 @@
                     </select>
                 </div>
                 
-                <!-- Optional: Show existing bookings list for this date -->
+                <!-- Existing bookings list -->
                 <div id="admin-court-list" class="court-manager-list" style="margin-top:16px; max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:8px; background:var(--bg);"></div>
                 
                 <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
@@ -205,6 +413,7 @@
                 <button class="modal-close" onclick="closeAccountModal()">✕</button>
             </div>
             <div class="modal-body account-modal-body">
+                <!-- (Same account modal content as before) -->
                 <div class="profile-picture-section">
                     <div class="profile-picture-wrapper">
                         <div class="profile-picture-large" id="profile-picture-large">NO</div>
