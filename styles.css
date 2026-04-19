@@ -250,3 +250,348 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
     .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main { margin-left: 0; width: 100%; } .menu-toggle { display: block; } .content { padding: 24px 20px; } .topbar { padding: 16px 20px; } .search-box input { width: 220px; } .stats-grid { grid-template-columns: repeat(2, 1fr); } .user-info { display: none; } .summons-card { flex-direction: column; align-items: flex-start; } .summons-date { text-align: left; } .card-body { padding: 24px 20px; } .modal { width: 95vw; } .modal-body { padding: 28px 24px; } .account-modal { width: 95vw; } .account-modal-body { padding: 24px 20px; } .account-tabs { overflow-x: auto; } .account-tab { padding: 10px 16px; white-space: nowrap; } .notification-setting { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
 @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } .search-box { display: none; } .auth-box { padding: 32px 24px; } .page-title { font-size: 26px; } }
+/* ==================== MOBILE RESPONSIVE ADDITIONS ==================== */
+
+/* Mobile Base Adjustments */
+@media (max-width: 768px) {
+    /* Show sidebar as overlay instead of pushing content */
+    .sidebar {
+        transform: translateX(-100%);
+        z-index: 2000;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+    }
+    
+    .sidebar.open {
+        transform: translateX(0);
+    }
+    
+    /* Add overlay when sidebar is open */
+    .sidebar.open::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: -1;
+    }
+    
+    /* Make main content full width */
+    .main {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    
+    /* Show hamburger menu */
+    .menu-toggle {
+        display: block !important;
+    }
+    
+    /* Reduce topbar padding */
+    .topbar {
+        padding: 12px 16px !important;
+    }
+    
+    /* Hide search on small screens */
+    .search-box {
+        display: none;
+    }
+    
+    /* Stack topbar elements */
+    .topbar-left {
+        gap: 12px;
+    }
+    
+    .topbar-right {
+        gap: 8px;
+    }
+    
+    /* Hide user info text, show only avatar */
+    .user-info {
+        display: none;
+    }
+    
+    .user-profile {
+        padding: 4px;
+    }
+    
+    /* Adjust content padding */
+    .content {
+        padding: 20px 16px !important;
+    }
+    
+    /* Make page titles responsive */
+    .page-title {
+        font-size: 24px !important;
+    }
+    
+    .page-subtitle {
+        font-size: 14px !important;
+        margin-bottom: 24px !important;
+    }
+    
+    /* Stack stats grid */
+    .stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 16px !important;
+        margin-bottom: 24px !important;
+    }
+    
+    .stat-card {
+        padding: 20px !important;
+    }
+    
+    .stat-card .stat-icon {
+        width: 48px !important;
+        height: 48px !important;
+        font-size: 24px !important;
+    }
+    
+    .stat-card .stat-value {
+        font-size: 28px !important;
+    }
+    
+    /* Stack quick actions */
+    .quick-actions {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+        margin-bottom: 24px !important;
+    }
+    
+    .quick-action {
+        padding: 16px !important;
+    }
+    
+    .quick-action .qa-icon {
+        font-size: 28px !important;
+    }
+    
+    /* Make cards stack */
+    .grid-2 {
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+    }
+    
+    .card {
+        margin-bottom: 20px !important;
+    }
+    
+    .card-header {
+        padding: 16px 20px !important;
+    }
+    
+    .card-body {
+        padding: 20px !important;
+    }
+    
+    /* Adjust filters */
+    .filter-tabs {
+        gap: 8px !important;
+        margin-bottom: 16px !important;
+    }
+    
+    .filter-tab {
+        padding: 8px 16px !important;
+        font-size: 13px !important;
+    }
+    
+    /* Make complaint items stack better */
+    .complaint-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .complaint-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    /* Stack summons cards */
+    .summons-card {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+    
+    .summons-date {
+        text-align: left !important;
+    }
+    
+    /* Court schedule grid */
+    .schedule-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    /* Resident grid */
+    .resident-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    
+    /* Adjust modals for mobile */
+    .modal {
+        width: 95% !important;
+        max-width: 95% !important;
+        margin: 10px !important;
+        border-radius: 14px !important;
+    }
+    
+    .modal-header {
+        padding: 20px !important;
+    }
+    
+    .modal-body {
+        padding: 20px !important;
+    }
+    
+    .modal-footer {
+        padding: 16px 20px !important;
+        flex-direction: column-reverse;
+        gap: 8px !important;
+    }
+    
+    .modal-footer .btn {
+        width: 100% !important;
+    }
+    
+    /* Account modal adjustments */
+    .account-modal {
+        width: 95% !important;
+    }
+    
+    .account-tabs {
+        overflow-x: auto;
+        gap: 4px;
+    }
+    
+    .account-tab {
+        padding: 10px 16px !important;
+        white-space: nowrap;
+        font-size: 13px !important;
+    }
+    
+    /* Notification settings stack */
+    .notification-setting {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+    
+    /* Form rows stack on mobile */
+    .form-row {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Make inputs larger for touch */
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 16px !important;
+        padding: 12px !important;
+    }
+    
+    /* Timeline adjustments */
+    .timeline {
+        padding-left: 24px;
+    }
+    
+    .timeline-item::before {
+        left: -20px;
+        width: 12px;
+        height: 12px;
+    }
+    
+    /* Map height on mobile */
+    #map {
+        height: 300px !important;
+    }
+    
+    /* Account dropdown positioning */
+    .account-dropdown {
+        right: 10px !important;
+        top: 50px !important;
+        width: 280px !important;
+    }
+}
+
+/* Extra small screens (phones in portrait) */
+@media (max-width: 480px) {
+    .auth-box {
+        padding: 24px 20px !important;
+    }
+    
+    .auth-logo {
+        width: 64px !important;
+        height: 64px !important;
+        font-size: 32px !important;
+    }
+    
+    .auth-header h1 {
+        font-size: 20px !important;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .quick-actions {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .page-title {
+        font-size: 22px !important;
+    }
+    
+    .content {
+        padding: 16px 12px !important;
+    }
+    
+    .topbar {
+        padding: 10px 12px !important;
+    }
+    
+    .btn {
+        padding: 10px 16px !important;
+        font-size: 14px !important;
+    }
+}
+
+/* Landscape phones */
+@media (max-width: 768px) and (orientation: landscape) {
+    .sidebar {
+        width: 240px !important;
+    }
+    
+    .modal {
+        max-height: 85vh !important;
+    }
+    
+    #map {
+        height: 250px !important;
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Increase touch targets */
+    .btn {
+        min-height: 48px !important;
+    }
+    
+    .sidebar-nav a {
+        min-height: 52px !important;
+    }
+    
+    .filter-tab {
+        min-height: 40px !important;
+    }
+    
+    /* Remove hover effects on touch */
+    .stat-card:hover,
+    .complaint-item:hover,
+    .resident-card:hover,
+    .quick-action:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+}
