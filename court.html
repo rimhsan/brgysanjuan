@@ -165,36 +165,59 @@
     </aside>
 
     <!-- Main Content -->
-    <div class="main">
-        <div class="topbar">
-            <div class="topbar-left">
-                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-            </div>
-            <div class="topbar-right">
-                <div class="user-profile" onclick="toggleAccountDropdown()">
-                    <div class="user-avatar" id="user-avatar">JD</div>
-                    <div class="user-info">
-                        <div class="name" id="user-name">Loading...</div>
-                        <div class="role" id="user-role">Resident</div>
-                    </div>
-                </div>
-                <!-- Account Dropdown -->
-                <div class="account-dropdown" id="accountDropdown">
-                    <div class="dropdown-header">
-                        <div class="dropdown-avatar" id="dropdown-avatar">JD</div>
-                        <div class="dropdown-info">
-                            <div class="dropdown-name" id="dropdown-name">User</div>
-                            <div class="dropdown-email" id="dropdown-email">email</div>
-                        </div>
-                    </div>
-                    <div class="dropdown-menu">
-                        <button class="dropdown-item" onclick="openAccountModal()">👤 My Profile</button>
-                        <div class="dropdown-divider"></div>
-                        <button class="dropdown-item logout" onclick="handleLogout()">🚪 Logout</button>
-                    </div>
-                </div>
+<div class="topbar-right">
+    <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+    
+    <div class="user-profile-trigger" onclick="toggleAccountDropdown()">
+        <div class="user-info-brief">
+            <span class="user-role-badge" id="user-role-badge">Resident</span>
+            <span class="user-name-brief" id="user-name-brief">Loading...</span>
+        </div>
+        <div class="user-avatar" id="user-avatar">JD</div>
+        <span class="dropdown-arrow">▼</span>
+    </div>
+
+    <!-- Redesigned Profile Dropdown -->
+    <div class="profile-dropdown" id="accountDropdown">
+        <div class="dropdown-profile-header">
+            <div class="dropdown-avatar" id="dropdown-avatar">JD</div>
+            <div class="dropdown-user-info">
+                <h4 id="dropdown-name">User Name</h4>
+                <p id="dropdown-email">user@example.com</p>
+                <span class="role-tag" id="dropdown-role">Resident</span>
             </div>
         </div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-menu-list">
+            <button class="dropdown-menu-item" onclick="openAccountModal()">
+                <span class="menu-icon">👤</span>
+                <div class="menu-text">
+                    <span class="menu-title">My Profile</span>
+                    <span class="menu-desc">View & edit your info</span>
+                </div>
+            </button>
+            <button class="dropdown-menu-item" onclick="openAccountSettings()">
+                <span class="menu-icon">⚙️</span>
+                <div class="menu-text">
+                    <span class="menu-title">Account Settings</span>
+                    <span class="menu-desc">Security & preferences</span>
+                </div>
+            </button>
+            <button class="dropdown-menu-item" onclick="viewMyComplaints()">
+                <span class="menu-icon">📋</span>
+                <div class="menu-text">
+                    <span class="menu-title">My Complaints</span>
+                    <span class="menu-desc">Track your submissions</span>
+                </div>
+            </button>
+        </div>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-menu-item logout-item" onclick="handleLogout()">
+            <span class="menu-icon">🚪</span>
+            <span class="menu-title">Sign Out</span>
+        </button>
+    </div>
+</div>
 
         <div class="content">
             <h1 class="page-title">Court Schedule</h1>
