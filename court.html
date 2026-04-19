@@ -38,7 +38,17 @@
                 <div class="filter-tabs"><button class="filter-tab active" onclick="filterCourt('today', this)">Today</button><button class="filter-tab" onclick="filterCourt('tomorrow', this)">Tomorrow</button><button class="filter-tab" onclick="filterCourt('week', this)">This Week</button></div>
                 <div style="display:flex; gap:10px;"><button class="btn btn-accent" id="admin-court-btn" style="display:none;" onclick="openAdminCourtModal()">⚙️ Manage</button><button class="btn btn-accent" onclick="openModal('courtModal')">📅 Book a Slot</button></div>
             </div>
-            <div class="card"><div class="card-header"><h3 id="courtDateTitle">Today's Schedule</h3></div><div class="card-body"><div class="schedule-grid" id="courtSchedule"></div></div></div>
+            <!-- In the content area of court.html -->
+<div class="card">
+    <div class="card-header">
+        <!-- This ID is critical -->
+        <h3 id="courtDateTitle">Today's Schedule</h3>
+    </div>
+    <div class="card-body">
+        <!-- This ID is critical -->
+        <div class="schedule-grid" id="courtSchedule"></div>
+    </div>
+</div>
         </div>
     </div>
     <div class="modal-overlay" id="courtModal">
