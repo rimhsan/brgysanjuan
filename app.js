@@ -147,7 +147,7 @@ async function initializeApp() {
     }
     
     if (currentPage === 'court.html') {
-        // Call initCalendar with true to force current month/year
+        // TRUE forces it to reset to TODAY'S date locally
         await initCalendar(true);
     }
     
