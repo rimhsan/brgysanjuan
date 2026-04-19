@@ -1078,3 +1078,48 @@ body {
         font-size: 26px;
     }
 }
+/* Fix the main container to fill remaining width */
+.main {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    min-height: 100vh;
+    width: calc(100vw - var(--sidebar-width)); /* Force full width */
+}
+
+/* Ensure content area takes full width */
+.content {
+    width: 100%;
+    max-width: 100%; /* Remove any max-width restriction */
+    padding: 40px 48px;
+}
+
+/* Fix the stats grid to use full width */
+.stats-grid {
+    width: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+/* Fix quick actions grid */
+.quick-actions {
+    width: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* Make sure all page containers fill width */
+.page {
+    width: 100%;
+}
+
+/* Fix card layouts to use available space */
+.grid-2 {
+    width: 100%;
+    grid-template-columns: 1fr 1fr;
+}
+
+/* Responsive fix for mobile */
+@media (max-width: 768px) {
+    .main {
+        margin-left: 0;
+        width: 100%;
+    }
+}
