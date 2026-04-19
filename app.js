@@ -707,7 +707,7 @@ function initMap() {
     if (mapInstance || !document.getElementById('map')) return;
     mapInstance = L.map('map').setView([13.42050593415853, 123.41943332823458], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
-    L.marker([13.4150, 123.4300]).addTo(mapInstance).bindPopup('Barangay Hall');
+    L.marker([13.42050593415853, 123.41943332823458]).addTo(mapInstance).bindPopup('Barangay Hall');
 }
 
 // Expose global functions
