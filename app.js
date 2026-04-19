@@ -1,3 +1,35 @@
+// Detect current page
+const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+
+// Auth check - redirect to login if not authenticated
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        currentUser = user;
+        await loadUserProfile();
+        
+        // If on login page, redirect to dashboard
+        if (currentPage === 'login.html') {
+            window.location.href = 'index.html';
+            return;
+        }
+        
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('app-wrapper').style.display = 'block';
+        initializeApp();
+    } else {
+        currentUser = null;
+        
+        // If not on login page, redirect to login
+        if (currentPage !== 'login.html') {
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        document.getElementById('auth-overlay').style.display = 'flex';
+        document.getElementById('app-wrapper').style.display = 'none';
+    }
+});
+
 // 🔑 FIREBASE CONFIGURATION
 const firebaseConfig = {
     apiKey: "AIzaSyCUn_OVro6-NBfIAn0SAcGZeV25HqiCvlc",
@@ -705,16 +737,41 @@ function showToast(message, type = 'success') {
 
 // ==================== INITIALIZATION ====================
 async function initializeApp() {
-    await updateStats();
-    await renderComplaints('all', 'complaintList');
-    await loadRecentComplaints();
-    await loadActivityTimeline();
-    await renderResidents();
-    await renderSummons();
-    await loadAnnouncements();
+    // Load data based on current page
+    if (currentPage === 'index.html' || currentPage === '') {
+        await updateStats();
+        await loadRecentComplaints();
+        await loadActivityTimeline();
+    }
+    
+    if (currentPage === 'complaints.html') {
+        await renderComplaints('all', 'complaintList');
+    }
+    
+    if (currentPage === 'residents.html') {
+        await renderResidents();
+    }
+    
+    if (currentPage === 'summons.html') {
+        await renderSummons();
+    }
+    
+    if (currentPage === 'court.html') {
+        await renderCourt();
+    }
+    
+    if (currentPage === 'map.html') {
+        setTimeout(initMap, 100);
+    }
+    
+    if (currentPage === 'announcements.html') {
+        await loadAnnouncements();
+    }
     
     const today = new Date().toISOString().split('T')[0];
-    document.querySelectorAll('input[type="date"]').forEach(input => { if (!input.value) input.value = today; });
+    document.querySelectorAll('input[type="date"]').forEach(input => { 
+        if (!input.value) input.value = today; 
+    });
 }
 
 // Make functions globally available
