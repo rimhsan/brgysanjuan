@@ -750,3 +750,107 @@ window.openAdminCourtModal = openAdminCourtModal;
 window.adminBookCourt = adminBookCourt;
 window.adminRemoveBooking = adminRemoveBooking;
 window.openBookingModal = openBookingModal;
+
+// ==================== ACCOUNT PAGE FUNCTIONS ====================
+function switchAccountTab(tabId, btn) {
+    document.querySelectorAll('.account-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.account-nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    btn.classList.add('active');
+}
+
+async function loadAccountPage() {
+    if (!currentUser) return;
+    try {
+        const doc = await db.collection('profiles').doc(currentUser.uid).get();
+        if (doc.exists) {
+            const data = doc.data();
+            document.getElementById('acc-first-name').value = data.firstName || '';
+            document.getElementById('acc-last-name').value = data.lastName || '';
+            document.getElementById('acc-email').value = data.email || '';
+            document.getElementById('acc-purok').value = data.purok || '';
+            document.getElementById('acc-phone').value = data.phone || '';
+            document.getElementById('acc-notif-email').checked = data.emailNotifications !== false;
+        }
+        await loadMyComplaints();
+    } catch (e) { console.error(e); }
+}
+
+async function saveAccountProfile() {
+    const fn = document.getElementById('acc-first-name').value.trim();
+    const ln = document.getElementById('acc-last-name').value.trim();
+    const purok = document.getElementById('acc-purok').value;
+    const phone = document.getElementById('acc-phone').value.trim();
+    if (!fn || !ln) { showToast('Name is required', 'warning'); return; }
+    try {
+        await db.collection('profiles').doc(currentUser.uid).update({ firstName: fn, lastName: ln, purok, phone });
+        await currentUser.updateProfile({ displayName: `${fn} ${ln}` });
+        showToast('Profile updated!', 'success');
+        // Update topbar if visible
+        const el = document.getElementById('user-name-brief');
+        if (el) el.textContent = `${fn} ${ln}`;
+    } catch (e) { showToast('Error: ' + e.message, 'danger'); }
+}
+
+async function changeAccountPassword() {
+    const curr = document.getElementById('acc-current-pass').value;
+    const newP = document.getElementById('acc-new-pass').value;
+    const conf = document.getElementById('acc-confirm-pass').value;
+    if (!curr || !newP || !conf) { showToast('Fill all password fields', 'warning'); return; }
+    if (newP.length < 6) { showToast('Min 6 characters', 'warning'); return; }
+    if (newP !== conf) { showToast('Passwords do not match', 'danger'); return; }
+    try {
+        const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, curr);
+        await currentUser.reauthenticateWithCredential(cred);
+        await currentUser.updatePassword(newP);
+        showToast('Password updated successfully!', 'success');
+        ['acc-current-pass','acc-new-pass','acc-confirm-pass'].forEach(id => document.getElementById(id).value = '');
+    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
+}
+
+async function saveNotifPrefs() {
+    try {
+        await db.collection('profiles').doc(currentUser.uid).update({
+            emailNotifications: document.getElementById('acc-notif-email').checked
+        });
+        showToast('Preferences saved!', 'success');
+    } catch (e) { showToast('Error saving', 'danger'); }
+}
+
+async function loadMyComplaints() {
+    const container = document.getElementById('my-complaints-list');
+    if (!container) return;
+    try {
+        const snap = await db.collection('complaints')
+            .where('userId', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc')
+            .get();
+        if (snap.empty) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:40px;">You haven\'t filed any complaints yet.</p>';
+            return;
+        }
+        container.innerHTML = snap.docs.map(doc => {
+            const c = doc.data();
+            const cls = c.status === 'resolved' ? 'resolved' : (c.status === 'progress' ? 'progress' : '');
+            return `
+                <div class="complaint-card ${cls}">
+                    <div class="complaint-header">
+                        <h4>${escapeHtml(c.title)}</h4>
+                        <span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status||'Pending'}</span>
+                    </div>
+                    <div class="complaint-desc">${escapeHtml(c.description)}</div>
+                    <div class="complaint-meta">
+                        <span>📍 ${escapeHtml(c.purok)}</span>
+                        <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) { container.innerHTML = '<p style="color:var(--danger)">Error loading complaints.</p>'; }
+}
+
+// Expose to global scope
+window.switchAccountTab = switchAccountTab;
+window.saveAccountProfile = saveAccountProfile;
+window.changeAccountPassword = changeAccountPassword;
+window.saveNotifPrefs = saveNotifPrefs;
+window.loadAccountPage = loadAccountPage;
