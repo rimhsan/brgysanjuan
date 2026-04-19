@@ -857,19 +857,23 @@ window.saveAccountProfile = saveAccountProfile;
 window.changeAccountPassword = changeAccountPassword;
 window.saveNotifPrefs = saveNotifPrefs;
 window.loadAccountPage = loadAccountPage;
-function toggleAccountDropdown() {
-    const dropdown = document.getElementById('accountDropdown');
+
+function toggleProfileDropdown() {
+    const dropdown = document.getElementById('profileDropdown');
+    const trigger = document.querySelector('.user-profile-trigger');
     if (dropdown) {
-        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        dropdown.classList.toggle('show');
+        if (trigger) trigger.classList.toggle('active');
     }
 }
 
 // Close dropdown when clicking outside
 document.addEventListener('click', function(e) {
-    const dropdown = document.getElementById('accountDropdown');
-    const profile = document.querySelector('.user-profile');
-    if (dropdown && profile && !profile.contains(e.target) && !dropdown.contains(e.target)) {
-        dropdown.style.display = 'none';
+    const dropdown = document.getElementById('profileDropdown');
+    const trigger = document.querySelector('.user-profile-trigger');
+    if (dropdown && trigger && !trigger.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('show');
+        trigger.classList.remove('active');
     }
 });
 
