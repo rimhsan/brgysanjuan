@@ -142,11 +142,18 @@
         </div>
     </div>
 
+    <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
+    <!-- 1. Firebase SDKs MUST load first -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <!-- 2. Leaflet (only needed for map.html, but safe to include everywhere) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- 3. Your App Logic loads LAST -->
     <script src="app.js"></script>
 </body>
 </html>
