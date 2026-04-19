@@ -158,6 +158,9 @@ async function initializeApp() {
     if (currentPage === 'announcements.html') {
         await loadAnnouncements();
     }
+        if (currentPage === 'account.html') {
+        await loadAccountPage(); // This function is in the JS I provided earlier
+    }
 }
 
 // ==================== NAVIGATION & UI HELPERS ====================
