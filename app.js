@@ -1,11 +1,12 @@
 // 🔑 FIREBASE CONFIGURATION - REPLACE WITH YOUR OWN
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCUn_OVro6-NBfIAn0SAcGZeV25HqiCvlc",
+  authDomain: "barangay-san-juan.firebaseapp.com",
+  projectId: "barangay-san-juan",
+  storageBucket: "barangay-san-juan.firebasestorage.app",
+  messagingSenderId: "987977241267",
+  appId: "1:987977241267:web:4685a282641fce2ccad6c6",
+  measurementId: "G-5XWG6ET1CE"
 };
 
 // Initialize Firebase
