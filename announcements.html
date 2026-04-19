@@ -23,14 +23,48 @@
         </nav>
     </aside>
     <div class="main">
-        <div class="topbar">
-            <div class="topbar-left"><button class="menu-toggle" onclick="toggleSidebar()">☰</button><div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div></div>
-            <div class="topbar-right">
-                <button class="notification-btn">🔔<span class="notification-badge"></span></button>
-                <div class="user-profile" onclick="toggleAccountDropdown()"><div class="user-avatar" id="user-avatar">JD</div><div class="user-info"><div class="name" id="user-name">Loading...</div><div class="role" id="user-role">Resident</div></div></div>
-                <div class="account-dropdown" id="accountDropdown"><div class="dropdown-header"><div class="dropdown-avatar" id="dropdown-avatar">JD</div><div class="dropdown-info"><div class="dropdown-name" id="dropdown-name">User Name</div><div class="dropdown-email" id="dropdown-email">user@example.com</div></div></div><div class="dropdown-menu"><button class="dropdown-item" onclick="openAccountModal()"><span class="dropdown-icon">👤</span>My Profile</button><button class="dropdown-item" onclick="openAccountSettings()"><span class="dropdown-icon">⚙️</span>Account Settings</button><button class="dropdown-item" onclick="viewMyComplaints()"><span class="dropdown-icon">📋</span>My Complaints</button><div class="dropdown-divider"></div><button class="dropdown-item logout" onclick="handleLogout()"><span class="dropdown-icon">🚪</span>Logout</button></div></div>
+       <div class="topbar">
+    <div class="topbar-left">
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
+    </div>
+    <div class="topbar-right">
+        <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+        
+        <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
+            <div class="user-avatar" id="user-avatar">NO</div>
+            <div class="user-info-brief">
+                <span class="user-name" id="user-name">Nashmir Akon Olivares</span>
+                <span class="user-role" id="user-role">Resident</span>
+            </div>
+            <span class="dropdown-arrow">▼</span>
+        </div>
+
+        <!-- Fixed Position Dropdown -->
+        <div class="profile-dropdown" id="profileDropdown">
+            <div class="dropdown-header">
+                <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
+                <div class="dropdown-details">
+                    <div class="dropdown-name" id="dropdown-name">Nashmir Akon Olivares</div>
+                    <div class="dropdown-email" id="dropdown-email">rimhsan.info@gmail.com</div>
+                    <span class="dropdown-role-tag" id="dropdown-role-tag">Resident</span>
+                </div>
+            </div>
+            <div class="dropdown-body">
+                <a href="account.html" class="dropdown-link">
+                    <span class="link-icon">👤</span>
+                    <div class="link-text">
+                        <span class="link-title">My Account</span>
+                        <span class="link-desc">Profile, Security & Complaints</span>
+                    </div>
+                </a>
+            </div>
+            <div class="dropdown-footer">
+                <button class="logout-btn" onclick="handleLogout()">🚪 Sign Out</button>
             </div>
         </div>
+    </div>
+</div>
         <div class="content">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
                 <div><h1 class="page-title">Announcements</h1><p class="page-subtitle">Latest news and updates from Barangay San Juan.</p></div>
