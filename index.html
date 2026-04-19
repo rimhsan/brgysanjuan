@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#1a5276">
+    <title>Barangay San Juan - Iriga City Portal</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- AUTH SCREEN -->
+    <div id="auth-screen" class="auth-container">
+        <div class="auth-box">
+            <div class="auth-header">
+                <div class="auth-logo">🏛️</div>
+                <h1>Barangay San Juan</h1>
+                <p>Iriga City, Camarines Sur</p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-form" class="auth-form">
+                <h2>Welcome Back</h2>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+                </div>
+                <button class="btn btn-primary btn-full" onclick="handleLogin()">Login</button>
+                <p class="auth-switch">
+                    Don't have an account? <a href="#" onclick="toggleAuthMode('signup')">Sign up</a>
+                </p>
+            </div>
+
+            <!-- Signup Form -->
+            <div id="signup-form" class="auth-form" style="display:none;">
+                <h2>Create Account</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" id="signup-fname" placeholder="Juan">
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" id="signup-lname" placeholder="Dela Cruz">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Purok</label>
+                    <select id="signup-purok">
+                        <option value="">Select Purok</option>
+                        <option value="Purok 1">Purok 1</option>
+                        <option value="Purok 2">Purok 2</option>
+                        <option value="Purok 3">Purok 3</option>
+                        <option value="Purok 4">Purok 4</option>
+                        <option value="Purok 5">Purok 5</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="signup-email" placeholder="you@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password (min 6 characters)</label>
+                    <input type="password" id="signup-password" placeholder="••••••••">
+                </div>
+                <button class="btn btn-accent btn-full" onclick="handleSignup()">Create Account</button>
+                <p class="auth-switch">
+                    Already have an account? <a href="#" onclick="toggleAuthMode('login')">Login</a>
+                </p>
+            </div>
+
+            <div id="auth-error" class="auth-error"></div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app-wrapper" style="display:none;">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">🏛️</div>
+                <h2>Barangay San Juan</h2>
+                <p>Iriga City, Camarines Sur</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="active" data-page="dashboard">
+                    <span class="icon">📊</span> Dashboard
+                </a>
+                <a href="#" data-page="complaints">
+                    <span class="icon">📝</span> Complaints
+                </a>
+                <a href="#" data-page="residents">
+                    <span class="icon">👥</span> Residents
+                </a>
+                <div class="nav-section-label">Scheduling</div>
+                <a href="#" data-page="summons">
+                    <span class="icon">📋</span> Summons
+                </a>
+                <a href="#" data-page="court">
+                    <span class="icon">🏟️</span> Court Schedule
+                </a>
+                <div class="nav-section-label">Information</div>
+                <a href="#" data-page="map">
+                    <span class="icon">🗺️</span> Map
+                </a>
+                <a href="#" data-page="profile">
+                    <span class="icon">👤</span> My Profile
+                </a>
+                <a href="#" onclick="handleLogout()">
+                    <span class="icon">🚪</span> Logout
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main">
+            <!-- Top Bar -->
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                    <div class="search-box">
+                        <input type="text" placeholder="Search..." id="globalSearch">
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+                    <div class="user-profile">
+                        <div class="user-avatar" id="user-avatar">JD</div>
+                        <div class="user-info">
+                            <div class="name" id="user-name">Loading...</div>
+                            <div class="role" id="user-role">Resident</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content">
+
+                <!-- DASHBOARD -->
+                <div class="page active" id="page-dashboard">
+                    <h1 class="page-title">Dashboard</h1>
+                    <p class="page-subtitle">Welcome to Barangay San Juan Portal</p>
+
+                    <div class="stats-grid" id="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#eaf2f8; color:#2980b9;">📝</div>
+                            <div class="stat-value" id="stat-complaints">-</div>
+                            <div class="stat-label">Active Complaints</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#eafaf1; color:#27ae60;">👥</div>
+                            <div class="stat-value" id="stat-residents">-</div>
+                            <div class="stat-label">Registered Residents</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#fef9e7; color:#f39c12;">📋</div>
+                            <div class="stat-value" id="stat-summons">-</div>
+                            <div class="stat-label">Pending Summons</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background:#fdedec; color:#e74c3c;">🏟️</div>
+                            <div class="stat-value" id="stat-court">-</div>
+                            <div class="stat-label">Court Bookings</div>
+                        </div>
+                    </div>
+
+                    <div class="quick-actions">
+                        <div class="quick-action" onclick="openModal('complaintModal')">
+                            <div class="qa-icon">📝</div>
+                            <div class="qa-label">File Complaint</div>
+                        </div>
+                        <div class="quick-action" onclick="navigateTo('summons')">
+                            <div class="qa-icon">📋</div>
+                            <div class="qa-label">View Summons</div>
+                        </div>
+                        <div class="quick-action" onclick="navigateTo('court')">
+                            <div class="qa-icon">🏟️</div>
+                            <div class="qa-label">Book Court</div>
+                        </div>
+                        <div class="quick-action" onclick="navigateTo('map')">
+                            <div class="qa-icon">🗺️</div>
+                            <div class="qa-label">View Map</div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>📌 Recent Complaints</h3>
+                                <button class="btn btn-outline btn-sm" onclick="navigateTo('complaints')">View All</button>
+                            </div>
+                            <div class="card-body">
+                                <div class="complaint-list" id="recent-complaints">
+                                    <p style="text-align:center; color:#7f8c8d; padding:20px;">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>🕐 Recent Activity</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="timeline" id="activity-timeline">
+                                    <p style="text-align:center; color:#7f8c8d;">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COMPLAINTS -->
+                <div class="page" id="page-complaints">
+                    <h1 class="page-title">Complaints & Concerns</h1>
+                    <p class="page-subtitle">File and track community concerns</p>
+
+                    <div class="action-bar">
+                        <div class="filter-tabs">
+                            <button class="filter-tab active" onclick="filterComplaints('all', this)">All</button>
+                            <button class="filter-tab" onclick="filterComplaints('pending', this)">⏳ Pending</button>
+                            <button class="filter-tab" onclick="filterComplaints('progress', this)">🔄 In Progress</button>
+                            <button class="filter-tab" onclick="filterComplaints('resolved', this)">✅ Resolved</button>
+                        </div>
+                        <button class="btn btn-primary" onclick="openModal('complaintModal')">➕ File Complaint</button>
+                    </div>
+
+                    <div class="complaint-list" id="complaint-list">
+                        <p style="text-align:center; padding:40px; color:#7f8c8d;">Loading complaints...</p>
+                    </div>
+                </div>
+
+                <!-- RESIDENTS -->
+                <div class="page" id="page-residents">
+                    <h1 class="page-title">Residents Directory</h1>
+                    <p class="page-subtitle">Browse registered residents</p>
+
+                    <div class="action-bar">
+                        <div class="filter-tabs">
+                            <button class="filter-tab active">All Puroks</button>
+                            <button class="filter-tab">Purok 1</button>
+                            <button class="filter-tab">Purok 2</button>
+                            <button class="filter-tab">Purok 3</button>
+                            <button class="filter-tab">Purok 4</button>
+                            <button class="filter-tab">Purok 5</button>
+                        </div>
+                    </div>
+
+                    <div class="resident-grid" id="resident-grid">
+                        <p style="text-align:center; padding:40px; color:#7f8c8d; grid-column:1/-1;">Loading residents...</p>
+                    </div>
+                </div>
+
+                <!-- SUMMONS -->
+                <div class="page" id="page-summons">
+                    <h1 class="page-title">Scheduled Summons</h1>
+                    <p class="page-subtitle">Barangay justice system hearings</p>
+
+                    <div class="action-bar" style="justify-content:flex-end;">
+                        <button class="btn btn-primary" onclick="openModal('summonsModal')">➕ Schedule Summons</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <div id="summons-list">
+                                <p style="text-align:center; padding:40px; color:#7f8c8d;">Loading summons...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COURT -->
+                <div class="page" id="page-court">
+                    <h1 class="page-title">Multipurpose Court</h1>
+                    <p class="page-subtitle">View and book time slots</p>
+
+                    <div class="action-bar">
+                        <div class="filter-tabs">
+                            <button class="filter-tab active" onclick="filterCourt('today', this)">Today</button>
+                            <button class="filter-tab" onclick="filterCourt('tomorrow', this)">Tomorrow</button>
+                            <button class="filter-tab" onclick="filterCourt('week', this)">This Week</button>
+                        </div>
+                        <button class="btn btn-accent" onclick="openModal('courtModal')">📅 Book Slot</button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 id="court-date-title">Today's Schedule</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="schedule-grid" id="court-schedule">
+                                <p style="text-align:center; padding:40px; color:#7f8c8d; grid-column:1/-1;">Loading schedule...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MAP -->
+                <div class="page" id="page-map">
+                    <h1 class="page-title">Barangay Map</h1>
+                    <p class="page-subtitle">Interactive map of San Juan, Iriga City</p>
+
+                    <div class="card">
+                        <div class="card-body" style="padding:16px;">
+                            <div id="map"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROFILE -->
+                <div class="page" id="page-profile">
+                    <h1 class="page-title">My Profile</h1>
+                    <p class="page-subtitle">Manage your account information</p>
+
+                    <div class="card" style="max-width:600px;">
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>First Name</label>
+                                <input type="text" id="profile-fname" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Last Name</label>
+                                <input type="text" id="profile-lname" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" id="profile-email" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Purok</label>
+                                <input type="text" id="profile-purok" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Role</label>
+                                <input type="text" id="profile-role" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Member Since</label>
+                                <input type="text" id="profile-created" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    
+    <!-- Complaint Modal -->
+    <div class="modal-overlay" id="complaintModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📝 File a Complaint</h3>
+                <button class="modal-close" onclick="closeModal('complaintModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="complaint-category">
+                        <option value="">Select category...</option>
+                        <option value="roadwork">🚧 Roadwork / Road Damage</option>
+                        <option value="lightpost">💡 Lightpost / Electricity</option>
+                        <option value="drainage">🔧 Drainage / Water</option>
+                        <option value="noise">📢 Noise Complaint</option>
+                        <option value="garbage">🗑️ Garbage / Sanitation</option>
+                        <option value="other">📌 Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" id="complaint-title" placeholder="Brief description">
+                </div>
+                <div class="form-group">
+                    <label>Description *</label>
+                    <textarea id="complaint-desc" placeholder="Provide details..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Purok *</label>
+                    <select id="complaint-purok">
+                        <option value="">Select purok...</option>
+                        <option value="Purok 1">Purok 1</option>
+                        <option value="Purok 2">Purok 2</option>
+                        <option value="Purok 3">Purok 3</option>
+                        <option value="Purok 4">Purok 4</option>
+                        <option value="Purok 5">Purok 5</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('complaintModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitComplaint()">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summons Modal -->
+    <div class="modal-overlay" id="summonsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📋 Schedule Summons</h3>
+                <button class="modal-close" onclick="closeModal('summonsModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Complainant Name *</label>
+                    <input type="text" id="summons-complainant" placeholder="Name">
+                </div>
+                <div class="form-group">
+                    <label>Respondent Name *</label>
+                    <input type="text" id="summons-respondent" placeholder="Name">
+                </div>
+                <div class="form-group">
+                    <label>Case/Matter *</label>
+                    <input type="text" id="summons-case" placeholder="e.g., Boundary dispute">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date *</label>
+                        <input type="date" id="summons-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Time *</label>
+                        <input type="time" id="summons-time">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Location</label>
+                    <select id="summons-location">
+                        <option value="Barangay Hall - Conference Room">Conference Room</option>
+                        <option value="Barangay Hall - Main Office">Main Office</option>
+                        <option value="Multipurpose Court">Multipurpose Court</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('summonsModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="addSummons()">Schedule</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Court Modal -->
+    <div class="modal-overlay" id="courtModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🏟️ Book Court Slot</h3>
+                <button class="modal-close" onclick="closeModal('courtModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Your Name/Organization *</label>
+                    <input type="text" id="court-booker" placeholder="Name">
+                </div>
+                <div class="form-group">
+                    <label>Date *</label>
+                    <input type="date" id="court-date">
+                </div>
+                <div class="form-group">
+                    <label>Time Slot *</label>
+                    <select id="court-timeslot">
+                        <option value="6:00 AM - 7:00 AM">6:00 AM - 7:00 AM</option>
+                        <option value="7:00 AM - 8:00 AM">7:00 AM - 8:00 AM</option>
+                        <option value="8:00 AM - 9:00 AM">8:00 AM - 9:00 AM</option>
+                        <option value="9:00 AM - 10:00 AM">9:00 AM - 10:00 AM</option>
+                        <option value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</option>
+                        <option value="11:00 AM - 12:00 PM">11:00 AM - 12:00 PM</option>
+                        <option value="1:00 PM - 2:00 PM">1:00 PM - 2:00 PM</option>
+                        <option value="2:00 PM - 3:00 PM">2:00 PM - 3:00 PM</option>
+                        <option value="3:00 PM - 4:00 PM">3:00 PM - 4:00 PM</option>
+                        <option value="4:00 PM - 5:00 PM">4:00 PM - 5:00 PM</option>
+                        <option value="5:00 PM - 6:00 PM">5:00 PM - 6:00 PM</option>
+                        <option value="6:00 PM - 7:00 PM">6:00 PM - 7:00 PM</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Activity</label>
+                    <select id="court-activity">
+                        <option value="Basketball Practice">Basketball Practice</option>
+                        <option value="Volleyball Practice">Volleyball Practice</option>
+                        <option value="Barangay Event">Barangay Event</option>
+                        <option value="Tournament">Tournament</option>
+                        <option value="Exercise/Fitness">Exercise/Fitness</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('courtModal')">Cancel</button>
+                <button class="btn btn-accent" onclick="bookCourt()">Book</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
