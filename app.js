@@ -477,3 +477,250 @@ window.updateComplaintStatus = updateComplaintStatus;
 window.addSummons = addSummons;
 window.bookCourt = bookCourt;
 window.filterCourt = filterCourt;
+
+// Account Dropdown Toggle
+let accountDropdownOpen = false;
+
+function toggleAccountDropdown() {
+    const dropdown = document.getElementById('accountDropdown');
+    accountDropdownOpen = !accountDropdownOpen;
+    
+    if (accountDropdownOpen) {
+        dropdown.classList.add('show');
+        updateDropdownInfo();
+    } else {
+        dropdown.classList.remove('show');
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const userProfile = document.querySelector('.user-profile');
+    const dropdown = document.getElementById('accountDropdown');
+    
+    if (accountDropdownOpen && !userProfile.contains(e.target) && !dropdown.contains(e.target)) {
+        toggleAccountDropdown();
+    }
+});
+
+// Add click event to user profile
+document.querySelector('.user-profile').addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleAccountDropdown();
+});
+
+// Update dropdown info
+function updateDropdownInfo() {
+    if (currentUser) {
+        document.getElementById('dropdown-name').textContent = 
+            `${currentUser.displayName || currentUser.email.split('@')[0]}`;
+        document.getElementById('dropdown-email').textContent = currentUser.email;
+        
+        const initials = (currentUser.displayName || currentUser.email).split(' ').map(n => n[0]).join('').toUpperCase();
+        document.getElementById('dropdown-avatar').textContent = initials;
+    }
+}
+
+// Open Account Page/Modal
+function openAccountPage() {
+    toggleAccountDropdown();
+    openAccountModal();
+}
+
+function openAccountSettings() {
+    toggleAccountDropdown();
+    openAccountModal();
+    switchTab('security');
+}
+
+function openAccountModal() {
+    loadAccountData();
+    document.getElementById('accountModal').classList.add('show');
+}
+
+function closeAccountModal() {
+    document.getElementById('accountModal').classList.remove('show');
+}
+
+// Load account data
+async function loadAccountData() {
+    if (!currentUser) return;
+    
+    try {
+        const doc = await db.collection('profiles').doc(currentUser.uid).get();
+        if (doc.exists) {
+            const data = doc.data();
+            
+            // Update profile picture/initials
+            const initials = `${data.firstName[0]}${data.lastName[0]}`.toUpperCase();
+            document.getElementById('profile-picture-large').textContent = initials;
+            document.getElementById('profile-picture-large').style.background = stringToColor(data.firstName + data.lastName);
+            
+            // Fill form fields
+            document.getElementById('edit-first-name').value = data.firstName || '';
+            document.getElementById('edit-last-name').value = data.lastName || '';
+            document.getElementById('edit-email').value = data.email || currentUser.email;
+            document.getElementById('edit-purok').value = data.purok || '';
+            document.getElementById('edit-phone').value = data.phone || '';
+            
+            // Load notification settings
+            document.getElementById('email-notifications').checked = data.emailNotifications !== false;
+            document.getElementById('complaint-notifications').checked = data.complaintNotifications !== false;
+            document.getElementById('summons-notifications').checked = data.summonsNotifications !== false;
+        }
+    } catch (error) {
+        console.error('Error loading account data:', error);
+    }
+}
+
+// Tab switching
+function switchTab(tabName) {
+    // Remove active class from all tabs and contents
+    document.querySelectorAll('.account-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.account-tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Add active class to selected tab and content
+    event.target.classList.add('active');
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+}
+
+// Update profile picture
+function updateProfilePicture(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // For now, we'll just update the initials display
+    // In production, you'd upload to Firebase Storage
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('profile-picture-large').style.backgroundImage = `url(${e.target.result})`;
+        document.getElementById('profile-picture-large').style.backgroundSize = 'cover';
+        document.getElementById('profile-picture-large').textContent = '';
+    };
+    reader.readAsDataURL(file);
+    
+    showToast('Profile picture updated!', 'success');
+}
+
+// Save profile changes
+async function saveProfileChanges() {
+    const firstName = document.getElementById('edit-first-name').value.trim();
+    const lastName = document.getElementById('edit-last-name').value.trim();
+    const email = document.getElementById('edit-email').value.trim();
+    const purok = document.getElementById('edit-purok').value;
+    const phone = document.getElementById('edit-phone').value.trim();
+    
+    if (!firstName || !lastName || !email) {
+        showToast('Please fill in all required fields.', 'warning');
+        return;
+    }
+    
+    try {
+        await db.collection('profiles').doc(currentUser.uid).update({
+            firstName,
+            lastName,
+            email,
+            purok,
+            phone,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // Update email in Firebase Auth if changed
+        if (email !== currentUser.email) {
+            await currentUser.updateEmail(email);
+        }
+        
+        // Update display name
+        await currentUser.updateProfile({
+            displayName: `${firstName} ${lastName}`
+        });
+        
+        // Update UI
+        document.getElementById('user-name').textContent = `${firstName} ${lastName}`;
+        
+        showToast('Profile updated successfully!', 'success');
+        closeAccountModal();
+    } catch (error) {
+        showToast('Failed to update profile: ' + error.message, 'danger');
+    }
+}
+
+// Change password
+async function changePassword() {
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        showToast('Please fill in all password fields.', 'warning');
+        return;
+    }
+    
+    if (newPassword.length < 6) {
+        showToast('New password must be at least 6 characters.', 'warning');
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        showToast('New passwords do not match.', 'danger');
+        return;
+    }
+    
+    try {
+        // Re-authenticate user
+        const credential = firebase.auth.EmailAuthProvider.credential(
+            currentUser.email,
+            currentPassword
+        );
+        await currentUser.reauthenticateWithCredential(credential);
+        
+        // Update password
+        await currentUser.updatePassword(newPassword);
+        
+        // Clear fields
+        document.getElementById('current-password').value = '';
+        document.getElementById('new-password').value = '';
+        document.getElementById('confirm-password').value = '';
+        
+        showToast('Password updated successfully!', 'success');
+    } catch (error) {
+        showToast('Failed to update password: ' + error.message, 'danger');
+    }
+}
+
+// Save notification settings
+async function saveNotificationSettings() {
+    try {
+        await db.collection('profiles').doc(currentUser.uid).update({
+            emailNotifications: document.getElementById('email-notifications').checked,
+            complaintNotifications: document.getElementById('complaint-notifications').checked,
+            summonsNotifications: document.getElementById('summons-notifications').checked,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        showToast('Notification preferences saved!', 'success');
+    } catch (error) {
+        showToast('Failed to save settings: ' + error.message, 'danger');
+    }
+}
+
+// View my complaints
+function viewMyComplaints() {
+    toggleAccountDropdown();
+    navigateTo('complaints');
+    // Could filter to show only user's complaints
+    showToast('Showing your complaints', 'success');
+}
+
+// Make functions globally available
+window.toggleAccountDropdown = toggleAccountDropdown;
+window.openAccountPage = openAccountPage;
+window.openAccountSettings = openAccountSettings;
+window.openAccountModal = openAccountModal;
+window.closeAccountModal = closeAccountModal;
+window.switchTab = switchTab;
+window.updateProfilePicture = updateProfilePicture;
+window.saveProfileChanges = saveProfileChanges;
+window.changePassword = changePassword;
+window.saveNotificationSettings = saveNotificationSettings;
+window.viewMyComplaints = viewMyComplaints;
