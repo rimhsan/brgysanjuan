@@ -1450,3 +1450,89 @@ body {
         gap: 12px;
     }
 }
+/* Admin UI Elements */
+.admin-badge {
+    background: var(--accent);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+/* Announcement Cards */
+.announcement-card {
+    padding: 24px;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    background: white;
+    margin-bottom: 16px;
+    position: relative;
+    transition: all 0.2s;
+}
+.announcement-card:hover {
+    border-color: var(--primary-light);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.announcement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+.announcement-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.announcement-content {
+    font-size: 15px;
+    color: var(--text-light);
+    line-height: 1.6;
+}
+.announcement-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--text-light);
+}
+.announcement-actions {
+    display: flex;
+    gap: 8px;
+}
+.announcement-actions .btn-sm {
+    padding: 5px 12px;
+    font-size: 12px;
+}
+
+/* Status Dropdown for Admins */
+.status-dropdown {
+    padding: 6px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    background: white;
+    cursor: pointer;
+}
+.status-dropdown:focus {
+    outline: none;
+    border-color: var(--primary-light);
+}
+
+/* Court Manager Table */
+.court-manager-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 16px;
+}
+.court-booking-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+}
+.court-booking-item:last-child { border-bottom: none; }
