@@ -18,32 +18,15 @@
             border: 1.5px solid var(--border);
         }
         
-        .calendar-nav {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
+        .calendar-nav { display: flex; align-items: center; gap: 12px; }
         .calendar-nav button {
-            background: var(--bg);
-            border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 16px;
-            color: var(--primary);
-            transition: 0.2s;
+            background: var(--bg); border: none; width: 36px; height: 36px; border-radius: 50%;
+            cursor: pointer; font-size: 16px; color: var(--primary); transition: 0.2s;
         }
-        
         .calendar-nav button:hover { background: #e2e8f0; }
+        .current-month { font-size: 20px; font-weight: 700; color: var(--text); }
         
-        .current-month {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text);
-        }
-        
+        /* Grid Layout */
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -56,131 +39,88 @@
         }
         
         .day-header {
-            text-align: center;
-            font-weight: 600;
-            color: var(--text-light);
-            font-size: 13px;
-            padding: 10px 0;
-            text-transform: uppercase;
+            text-align: center; font-weight: 600; color: var(--text-light);
+            font-size: 13px; padding: 10px 0; text-transform: uppercase;
         }
         
         .calendar-day {
-            aspect-ratio: 1;
+            min-height: 120px; /* Flexible height */
+            background: white;
             border: 1.5px solid var(--border);
             border-radius: 10px;
+            padding: 8px;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
             position: relative;
-            background: white;
-            min-height: 80px;
+            transition: 0.2s;
         }
         
-        .calendar-day:hover {
-            border-color: var(--primary-light);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
+        .calendar-day:hover { border-color: var(--primary-light); background: #f8fafc; }
+        .calendar-day.selected { border-color: var(--primary); background: #f0f9ff; box-shadow: 0 0 0 2px rgba(41,128,185,0.2); }
+        .calendar-day.today { border-color: var(--accent); }
         
-        .calendar-day.selected {
-            border-color: var(--primary);
-            background: #f0f9ff;
-            box-shadow: 0 0 0 2px var(--primary-light);
-        }
-        
-        .calendar-day.today {
-            border-color: var(--accent);
-            font-weight: 700;
+        .day-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
         }
         
         .day-number {
             font-size: 16px;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-        
-        .day-indicator {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--success);
-            margin-top: 4px;
-        }
-        
-        .day-indicator.admin { background: var(--accent); }
-        
-        .day-count {
-            font-size: 10px;
-            color: var(--text-light);
-            margin-top: 2px;
-        }
-        
-        /* Day Details Section */
-        .day-details {
-            background: white;
-            padding: 24px;
-            border-radius: 12px;
-            border: 1.5px solid var(--border);
-        }
-        
-        .day-details-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 16px;
-            border-bottom: 1.5px solid var(--border);
-        }
-        
-        .booking-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        
-        .booking-item {
-            padding: 16px;
-            background: var(--bg);
-            border-radius: 10px;
-            border-left: 4px solid var(--primary);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .booking-item.admin { border-left-color: var(--accent); background: #fff9e6; }
-        
-        .booking-time {
             font-weight: 700;
             color: var(--text);
-            font-size: 15px;
         }
         
-        .booking-info {
+        /* Booking Items Inside Grid */
+        .grid-bookings {
             flex: 1;
-            margin-left: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto; /* Scroll if too many bookings */
+            max-height: 150px;
         }
         
-        .booking-name {
-            font-weight: 600;
-            color: var(--text);
+        .grid-booking {
+            font-size: 11px;
+            background: #f1f5f9;
+            padding: 4px 6px;
+            border-radius: 4px;
+            border-left: 3px solid var(--primary);
+            line-height: 1.2;
         }
         
-        .booking-activity {
-            font-size: 13px;
-            color: var(--text-light);
+        .grid-booking.admin {
+            background: #fff7ed;
+            border-left-color: var(--accent);
+        }
+        
+        .grid-time { font-weight: 700; color: var(--text); }
+        .grid-name { color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* Bottom Section */
+        .bottom-actions {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border);
+            text-align: right; /* Align button to right */
         }
         
         @media (max-width: 768px) {
-            .calendar-day { min-height: 60px; }
+            .calendar-grid { grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 10px; }
+            .calendar-day { min-height: 80px; padding: 4px; }
             .day-number { font-size: 14px; }
-            .booking-item { flex-direction: column; align-items: flex-start; gap: 8px; }
-            .booking-info { margin-left: 0; }
+            .grid-bookings { display: none; } /* Hide details on mobile grid to save space */
+            .calendar-day::after {
+                content: attr(data-count) ' Bookings';
+                font-size: 10px;
+                color: var(--text-light);
+                text-align: center;
+                display: block;
+                margin-top: auto;
+            }
         }
     </style>
 </head>
@@ -220,6 +160,7 @@
                         <div class="role" id="user-role">Resident</div>
                     </div>
                 </div>
+                <!-- Account Dropdown -->
                 <div class="account-dropdown" id="accountDropdown">
                     <div class="dropdown-header">
                         <div class="dropdown-avatar" id="dropdown-avatar">JD</div>
@@ -260,23 +201,17 @@
                 <div class="day-header">Thu</div>
                 <div class="day-header">Fri</div>
                 <div class="day-header">Sat</div>
-                <!-- Days will be injected here -->
+                <!-- Days injected here -->
             </div>
             
-            <!-- Selected Day Details -->
-            <div class="day-details">
-                <div class="day-details-header">
-                    <h3 id="selected-day-title">Select a date</h3>
-                    <button class="btn btn-accent" onclick="openBookingModal()">📅 Book Slot</button>
-                </div>
-                <div class="booking-list" id="booking-list">
-                    <p style="text-align:center; color:var(--text-light); padding:20px;">Click a day on the calendar to view schedule</p>
-                </div>
+            <!-- Bottom Action Bar (Removed Date Header, Kept Book Slot) -->
+            <div class="bottom-actions">
+                <button class="btn btn-accent" onclick="openBookingModal()">📅 Book a Slot</button>
             </div>
         </div>
     </div>
 
-    <!-- Manual Booking Modal -->
+    <!-- Booking Modal -->
     <div class="modal-overlay" id="courtModal">
         <div class="modal">
             <div class="modal-header">
