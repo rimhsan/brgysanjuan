@@ -535,17 +535,41 @@ async function addSummons() {
     } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
 }
 
-// Court
+// ==================== COURT BOOKINGS (FIXED) ====================
+
 async function renderCourt(selectedDate = new Date().toISOString().split('T')[0]) {
     const container = document.getElementById('courtSchedule');
+    const dateTitle = document.getElementById('courtDateTitle');
+    
+    // Exit if elements don't exist (prevents errors on other pages)
     if (!container) return;
     
-    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">Loading...</p>';
+    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">⏳ Loading schedule...</p>';
+    
     try {
-        const snapshot = await db.collection('courtBookings').where('date', '==', selectedDate).get();
-        const bookings = snapshot.docs.map(doc => doc.data());
+        // Format date for Firestore (YYYY-MM-DD)
+        const queryDate = selectedDate || new Date().toISOString().split('T')[0];
+        
+        // Query Firestore - with error handling for missing indexes
+        let bookings = [];
+        try {
+            const snapshot = await db.collection('courtBookings')
+                .where('date', '==', queryDate)
+                .get();
+            bookings = snapshot.docs.map(doc => doc.data());
+        } catch (queryError) {
+            console.warn('Query failed (maybe missing index):', queryError.message);
+            // Fallback: fetch all and filter client-side (slower but works)
+            const allSnapshot = await db.collection('courtBookings').get();
+            bookings = allSnapshot.docs
+                .map(doc => doc.data())
+                .filter(b => b.date === queryDate);
+        }
+        
+        // Create a map for quick lookup
         const bookedMap = new Map(bookings.map(b => [b.timeSlot, b]));
         
+        // Generate time slots
         container.innerHTML = TIME_SLOTS.map(slot => {
             const booking = bookedMap.get(slot);
             const isBooked = !!booking;
@@ -553,14 +577,28 @@ async function renderCourt(selectedDate = new Date().toISOString().split('T')[0]
                 <div class="schedule-slot ${isBooked ? 'booked' : 'available'}">
                     <div class="schedule-time">${slot}</div>
                     <div class="schedule-status">${isBooked ? 'Booked' : 'Available'}</div>
-                    ${isBooked ? `<div class="schedule-booker">${escapeHtml(booking.bookerName)}<br>${escapeHtml(booking.activity)}</div>` : '<div class="schedule-booker">Click to book</div>'}
+                    ${isBooked ? `
+                        <div class="schedule-booker">
+                            ${escapeHtml(booking.bookerName)}<br>
+                            <small>${escapeHtml(booking.activity)}</small>
+                        </div>
+                    ` : '<div class="schedule-booker" style="cursor:pointer;" onclick="openModal(\'courtModal\')">📅 Book</div>'}
                 </div>
             `;
         }).join('');
         
-        const titleEl = document.getElementById('courtDateTitle');
-        if (titleEl) titleEl.textContent = `Schedule for ${new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`;
-    } catch (error) { container.innerHTML = '<p>Error loading schedule.</p>'; }
+        // Update date title
+        if (dateTitle) {
+            const formatted = new Date(queryDate).toLocaleDateString('en-US', { 
+                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' 
+            });
+            dateTitle.textContent = `Schedule for ${formatted}`;
+        }
+        
+    } catch (error) {
+        console.error('Court render error:', error);
+        container.innerHTML = `<p style="text-align:center; color:var(--danger); padding:20px;">⚠️ Error loading schedule. Please try again later.</p>`;
+    }
 }
 
 async function bookCourt() {
@@ -569,27 +607,58 @@ async function bookCourt() {
     const timeSlot = document.getElementById('court-timeslot')?.value;
     const activity = document.getElementById('court-activity')?.value;
     
-    if (!bookerName || !date) { showToast('Enter name and date.', 'warning'); return; }
+    if (!bookerName || !date || !timeSlot) { 
+        showToast('Please fill name, date, and time slot.', 'warning'); 
+        return; 
+    }
     
     try {
-        const existing = await db.collection('courtBookings').where('date', '==', date).where('timeSlot', '==', timeSlot).get();
-        if (!existing.empty) { showToast('Slot already booked.', 'danger'); return; }
+        // Check if already booked
+        const existing = await db.collection('courtBookings')
+            .where('date', '==', date)
+            .where('timeSlot', '==', timeSlot)
+            .get();
+            
+        if (!existing.empty) { 
+            showToast('This time slot is already booked.', 'danger'); 
+            return; 
+        }
         
         await db.collection('courtBookings').add({
-            userId: currentUser.uid, bookerName, date, timeSlot, activity,
+            userId: currentUser.uid, 
+            bookerName, 
+            date, 
+            timeSlot, 
+            activity,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        closeModal('courtModal'); showToast('Booked!', 'success'); renderCourt(date);
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
+        
+        closeModal('courtModal'); 
+        showToast(`Court booked for ${bookerName}!`, 'success'); 
+        renderCourt(date); // Refresh the view
+        
+    } catch (error) {
+        console.error('Booking error:', error);
+        showToast('Booking failed: ' + error.message, 'danger');
+    }
 }
 
 function filterCourt(period, btn) {
+    // Update active tab styling
     document.querySelectorAll('#page-court .filter-tab').forEach(t => t.classList.remove('active'));
-    if(btn) btn.classList.add('active');
+    if (btn) btn.classList.add('active');
     
-    let date = new Date().toISOString().split('T')[0];
-    if (period === 'tomorrow') { const t = new Date(); t.setDate(t.getDate() + 1); date = t.toISOString().split('T')[0]; }
-    renderCourt(date);
+    // Calculate date based on period
+    let targetDate = new Date();
+    if (period === 'tomorrow') {
+        targetDate.setDate(targetDate.getDate() + 1);
+    } else if (period === 'week') {
+        // For "week", just show today for simplicity
+        // You could expand this to show a week view later
+    }
+    
+    const dateStr = targetDate.toISOString().split('T')[0];
+    renderCourt(dateStr);
 }
 
 // Admin Court
