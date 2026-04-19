@@ -1,64 +1,73 @@
-// 🔑 FIREBASE CONFIGURATION - REPLACE WITH YOUR OWN
+// app.js - Firebase v9+ Modular SDK
+
+// 🔥 Import Firebase functions
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { 
+    getAuth, 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signOut, 
+    onAuthStateChanged,
+    updateProfile
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    query, 
+    where, 
+    getDocs, 
+    orderBy, 
+    serverTimestamp,
+    doc,
+    setDoc,
+    getDoc,
+    updateDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+// 🔑 Your Firebase Configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCUn_OVro6-NBfIAn0SAcGZeV25HqiCvlc",
-  authDomain: "barangay-san-juan.firebaseapp.com",
-  projectId: "barangay-san-juan",
-  storageBucket: "barangay-san-juan.firebasestorage.app",
-  messagingSenderId: "987977241267",
-  appId: "1:987977241267:web:4685a282641fce2ccad6c6",
-  measurementId: "G-5XWG6ET1CE"
+    apiKey: "AIzaSyCUn_OVro6-NBfIAn0SAcGZeV25HqiCvlc",
+    authDomain: "barangay-san-juan.firebaseapp.com",
+    projectId: "barangay-san-juan",
+    storageBucket: "barangay-san-juan.firebasestorage.app",
+    messagingSenderId: "987977241267",
+    appId: "1:987977241267:web:4685a282641fce2ccad6c6",
+    measurementId: "G-5XWG6ET1CE"
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Global state
 let currentUser = null;
 let userRole = 'resident';
-let mapInstance = null;
-
-// Category configurations
-const categoryConfig = {
-    roadwork: { label: '🚧 Roadwork', class: 'cat-roadwork' },
-    lightpost: { label: '💡 Lightpost', class: 'cat-lightpost' },
-    drainage: { label: '🔧 Drainage', class: 'cat-drainage' },
-    noise: { label: '📢 Noise', class: 'cat-noise' },
-    garbage: { label: '🗑️ Garbage', class: 'cat-garbage' },
-    other: { label: '📌 Other', class: 'cat-other' }
-};
-
-const statusConfig = {
-    pending: { label: 'Pending', class: 'status-pending' },
-    progress: { label: 'In Progress', class: 'status-progress' },
-    resolved: { label: 'Resolved', class: 'status-resolved' },
-    confirmed: { label: 'Confirmed', class: 'status-confirmed' }
-};
-
-// Time slots for court
-const TIME_SLOTS = [
-    '6:00 AM - 7:00 AM', '7:00 AM - 8:00 AM', '8:00 AM - 9:00 AM',
-    '9:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM',
-    '1:00 PM - 2:00 PM', '2:00 PM - 3:00 PM', '3:00 PM - 4:00 PM',
-    '4:00 PM - 5:00 PM', '5:00 PM - 6:00 PM', '6:00 PM - 7:00 PM'
-];
 
 // ==================== AUTHENTICATION ====================
 
-auth.onAuthStateChanged(async (user) => {
+// Listen for auth state changes
+onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
         await loadUserProfile();
-        document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('app-wrapper').style.display = 'block';
-        initializeApp();
+        showApp();
     } else {
         currentUser = null;
-        document.getElementById('auth-screen').style.display = 'flex';
-        document.getElementById('app-wrapper').style.display = 'none';
+        showAuth();
     }
 });
+
+function showAuth() {
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('app-wrapper').style.display = 'none';
+}
+
+function showApp() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-wrapper').style.display = 'block';
+}
 
 function toggleAuthMode(mode) {
     document.getElementById('login-form').style.display = mode === 'login' ? 'block' : 'none';
@@ -66,6 +75,7 @@ function toggleAuthMode(mode) {
     document.getElementById('auth-error').style.display = 'none';
 }
 
+// Sign Up
 async function handleSignup() {
     const email = document.getElementById('signup-email').value.trim();
     const password = document.getElementById('signup-password').value;
@@ -79,21 +89,29 @@ async function handleSignup() {
     }
 
     try {
-        const cred = await auth.createUserWithEmailAndPassword(email, password);
-        await db.collection('profiles').doc(cred.user.uid).set({
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Update display name
+        await updateProfile(user, { displayName: `${fname} ${lname}` });
+
+        // Create profile in Firestore
+        await setDoc(doc(db, "profiles", user.uid), {
             firstName: fname,
             lastName: lname,
             purok: purok,
             email: email,
             role: 'resident',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            createdAt: serverTimestamp()
         });
+
         showToast('Account created! Please verify your email.', 'success');
     } catch (error) {
-        showAuthError(error.message);
+        showAuthError(getErrorMessage(error.code));
     }
 }
 
+// Login
 async function handleLogin() {
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
@@ -104,136 +122,77 @@ async function handleLogin() {
     }
 
     try {
-        await auth.signInWithEmailAndPassword(email, password);
+        await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-        showAuthError('Invalid email or password.');
+        showAuthError(getErrorMessage(error.code));
     }
 }
 
+// Logout
 async function handleLogout() {
-    await auth.signOut();
-    showToast('Logged out successfully.', 'success');
+    try {
+        await signOut(auth);
+        showToast('Logged out successfully.', 'success');
+    } catch (error) {
+        showToast('Logout failed: ' + error.message, 'danger');
+    }
+}
+
+// Load user profile from Firestore
+async function loadUserProfile() {
+    if (!currentUser) return;
+    
+    try {
+        const docRef = doc(db, "profiles", currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            userRole = data.role || 'resident';
+            
+            // Update UI
+            const userNameEl = document.getElementById('user-name');
+            const userRoleEl = document.getElementById('user-role');
+            const userAvatarEl = document.getElementById('user-avatar');
+            
+            if (userNameEl) userNameEl.textContent = `${data.firstName} ${data.lastName}`;
+            if (userRoleEl) userRoleEl.textContent = data.role === 'admin' ? 'Barangay Admin' : 'Resident';
+            if (userAvatarEl) userAvatarEl.textContent = `${data.firstName[0]}${data.lastName[0]}`;
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+    }
 }
 
 function showAuthError(message) {
     const el = document.getElementById('auth-error');
-    el.textContent = message;
-    el.style.display = 'block';
-}
-
-async function loadUserProfile() {
-    const doc = await db.collection('profiles').doc(currentUser.uid).get();
-    if (doc.exists) {
-        const data = doc.data();
-        document.getElementById('user-name').textContent = `${data.firstName} ${data.lastName}`;
-        document.getElementById('user-role').textContent = data.role === 'admin' ? 'Barangay Admin' : 'Resident';
-        document.getElementById('user-avatar').textContent = `${data.firstName[0]}${data.lastName[0]}`;
-        userRole = data.role;
-
-        // Load profile page
-        document.getElementById('profile-fname').value = data.firstName;
-        document.getElementById('profile-lname').value = data.lastName;
-        document.getElementById('profile-email').value = data.email;
-        document.getElementById('profile-purok').value = data.purok;
-        document.getElementById('profile-role').value = data.role;
-        if (data.createdAt) {
-            document.getElementById('profile-created').value = new Date(data.createdAt.toDate()).toLocaleDateString();
-        }
+    if (el) {
+        el.textContent = message;
+        el.style.display = 'block';
     }
 }
 
-// ==================== NAVIGATION ====================
-
-function navigateTo(page) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
-    
-    document.getElementById(`page-${page}`).classList.add('active');
-    const navLink = document.querySelector(`.sidebar-nav a[data-page="${page}"]`);
-    if (navLink) navLink.classList.add('active');
-
-    document.getElementById('sidebar').classList.remove('open');
-
-    if (page === 'map') {
-        setTimeout(initMap, 100);
-    }
+function getErrorMessage(code) {
+    const errors = {
+        'auth/invalid-email': 'Invalid email address.',
+        'auth/user-disabled': 'This account has been disabled.',
+        'auth/user-not-found': 'No account found with this email.',
+        'auth/wrong-password': 'Incorrect password.',
+        'auth/email-already-in-use': 'Email already registered.',
+        'auth/weak-password': 'Password should be at least 6 characters.',
+        'auth/operation-not-allowed': 'This operation is not allowed.',
+        'auth/network-request-failed': 'Network error. Please check your connection.'
+    };
+    return errors[code] || 'Authentication error. Please try again.';
 }
-
-document.querySelectorAll('.sidebar-nav a[data-page]').forEach(link => {
-    link.addEventListener('click', (e) => {
-        e.preventDefault();
-        navigateTo(link.dataset.page);
-    });
-});
-
-function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open');
-}
-
-// ==================== MODALS ====================
-
-function openModal(id) {
-    document.getElementById(id).classList.add('show');
-}
-
-function closeModal(id) {
-    document.getElementById(id).classList.remove('show');
-}
-
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeModal(overlay.id);
-    });
-});
 
 // ==================== COMPLAINTS ====================
 
-async function fetchComplaints() {
-    const snapshot = await db.collection('complaints')
-        .orderBy('createdAt', 'desc')
-        .get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-}
-
-async function renderComplaints(filter = 'all', elementId = 'complaint-list') {
-    const container = document.getElementById(elementId);
-    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">Loading...</p>';
-
-    const complaints = await fetchComplaints();
-    const filtered = filter === 'all' ? complaints : complaints.filter(c => c.status === filter);
-
-    if (filtered.length === 0) {
-        container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">No complaints found.</p>';
-        return;
-    }
-
-    container.innerHTML = filtered.map(c => `
-        <div class="complaint-item">
-            <div class="complaint-header">
-                <span class="complaint-category ${categoryConfig[c.category]?.class || 'cat-other'}">
-                    ${categoryConfig[c.category]?.label || '📌 Other'}
-                </span>
-                <span class="status-badge ${statusConfig[c.status]?.class || 'status-pending'}">
-                    <span class="status-dot"></span> ${statusConfig[c.status]?.label || 'Pending'}
-                </span>
-            </div>
-            <div class="complaint-title">${escapeHtml(c.title)}</div>
-            <div class="complaint-desc">${escapeHtml(c.description)}</div>
-            <div class="complaint-meta">
-                <span>👤 ${escapeHtml(c.userName || 'Unknown')}</span>
-                <span>📍 ${escapeHtml(c.purok)}</span>
-                <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
-                ${userRole === 'admin' ? `<button class="btn btn-sm btn-success" onclick="updateComplaintStatus('${c.id}', 'resolved')">✅ Mark Resolved</button>` : ''}
-            </div>
-        </div>
-    `).join('');
-}
-
 async function submitComplaint() {
-    const category = document.getElementById('complaint-category').value;
-    const title = document.getElementById('complaint-title').value.trim();
-    const description = document.getElementById('complaint-desc').value.trim();
-    const purok = document.getElementById('complaint-purok').value;
+    const category = document.getElementById('complaint-category')?.value;
+    const title = document.getElementById('complaint-title')?.value.trim();
+    const description = document.getElementById('complaint-desc')?.value.trim();
+    const purok = document.getElementById('complaint-purok')?.value;
 
     if (!category || !title || !description || !purok) {
         showToast('Please fill all required fields.', 'warning');
@@ -241,133 +200,99 @@ async function submitComplaint() {
     }
 
     try {
-        await db.collection('complaints').add({
+        await addDoc(collection(db, "complaints"), {
             userId: currentUser.uid,
-            userName: `${currentUser.displayName || 'Resident'}`,
+            userName: currentUser.displayName || currentUser.email,
             category,
             title,
             description,
             purok,
             status: 'pending',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            createdAt: serverTimestamp()
         });
 
-        closeModal('complaintModal');
         showToast('Complaint filed successfully!', 'success');
-        renderComplaints();
-        updateStats();
-
-        // Clear form
-        document.getElementById('complaint-category').value = '';
-        document.getElementById('complaint-title').value = '';
-        document.getElementById('complaint-desc').value = '';
-        document.getElementById('complaint-purok').value = '';
+        clearComplaintForm();
+        
+        // Refresh complaints list if on complaints page
+        if (document.getElementById('complaint-list')) {
+            renderComplaints();
+        }
     } catch (error) {
-        showToast('Failed to submit complaint: ' + error.message, 'danger');
+        showToast('Failed to submit: ' + error.message, 'danger');
     }
 }
 
-async function updateComplaintStatus(id, status) {
-    if (userRole !== 'admin') {
-        showToast('Only admins can update status.', 'warning');
-        return;
-    }
+function clearComplaintForm() {
+    const fields = ['complaint-category', 'complaint-title', 'complaint-desc', 'complaint-purok'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+}
+
+async function renderComplaints(filter = 'all') {
+    const container = document.getElementById('complaint-list');
+    if (!container) return;
+    
+    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">Loading complaints...</p>';
 
     try {
-        await db.collection('complaints').doc(id).update({ status });
-        showToast(`Complaint marked as ${status}`, 'success');
-        renderComplaints();
-        updateStats();
+        let q = query(collection(db, "complaints"), orderBy("createdAt", "desc"));
+        
+        if (filter !== 'all') {
+            q = query(q, where("status", "==", filter));
+        }
+
+        const snapshot = await getDocs(q);
+        const complaints = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        if (complaints.length === 0) {
+            container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">No complaints found.</p>';
+            return;
+        }
+
+        container.innerHTML = complaints.map(c => `
+            <div class="complaint-item">
+                <div class="complaint-header">
+                    <span class="complaint-category cat-${c.category || 'other'}">
+                        ${getCategoryLabel(c.category)}
+                    </span>
+                    <span class="status-badge status-${c.status || 'pending'}">
+                        <span class="status-dot"></span> ${getStatusLabel(c.status)}
+                    </span>
+                </div>
+                <div class="complaint-title">${escapeHtml(c.title)}</div>
+                <div class="complaint-desc">${escapeHtml(c.description)}</div>
+                <div class="complaint-meta">
+                    <span>👤 ${escapeHtml(c.userName || 'Unknown')}</span>
+                    <span>📍 ${escapeHtml(c.purok)}</span>
+                    <span>🕐 ${c.createdAt ? formatDate(c.createdAt) : 'N/A'}</span>
+                </div>
+            </div>
+        `).join('');
     } catch (error) {
-        showToast('Update failed: ' + error.message, 'danger');
+        container.innerHTML = `<p style="text-align:center; color:var(--danger); padding:20px;">Error: ${error.message}</p>`;
     }
 }
 
 function filterComplaints(filter, btn) {
-    document.querySelectorAll('#page-complaints .filter-tab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
-    renderComplaints(filter);
-}
-
-// ==================== RESIDENTS ====================
-
-async function fetchResidents() {
-    const snapshot = await db.collection('profiles').orderBy('lastName').get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-}
-
-async function renderResidents() {
-    const container = document.getElementById('resident-grid');
-    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d; grid-column:1/-1;">Loading...</p>';
-
-    const residents = await fetchResidents();
+    // Update active tab
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
     
-    container.innerHTML = residents.map(r => `
-        <div class="resident-card">
-            <div class="resident-avatar" style="background:${stringToColor(r.firstName + r.lastName)}">
-                ${r.firstName[0]}${r.lastName[0]}
-            </div>
-            <div class="resident-name">${escapeHtml(r.firstName)} ${escapeHtml(r.lastName)}</div>
-            <div class="resident-address">${escapeHtml(r.purok)} • ${escapeHtml(r.phone || 'N/A')}</div>
-            <div class="resident-info">
-                <div>
-                    <div class="label">Role</div>
-                    <div class="value">${r.role}</div>
-                </div>
-                <div>
-                    <div class="label">Joined</div>
-                    <div class="value">${r.createdAt ? new Date(r.createdAt.toDate()).toLocaleDateString() : 'N/A'}</div>
-                </div>
-            </div>
-        </div>
-    `).join('');
+    renderComplaints(filter);
 }
 
 // ==================== SUMMONS ====================
 
-async function fetchSummons() {
-    const snapshot = await db.collection('summons')
-        .orderBy('date', 'asc')
-        .get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-}
-
-async function renderSummons() {
-    const container = document.getElementById('summons-list');
-    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">Loading...</p>';
-
-    const summons = await fetchSummons();
-
-    if (summons.length === 0) {
-        container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">No scheduled summons.</p>';
-        return;
-    }
-
-    container.innerHTML = summons.map(s => `
-        <div class="summons-card">
-            <div class="summons-info">
-                <h4>${escapeHtml(s.caseTitle)}</h4>
-                <p>Complainant: ${escapeHtml(s.complainantName)} | Respondent: ${escapeHtml(s.respondentName)}</p>
-                <p>📍 ${escapeHtml(s.location)}</p>
-            </div>
-            <div class="summons-date">
-                <div class="date">${s.date ? new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}</div>
-                <div class="time">${escapeHtml(s.time)}</div>
-                <span class="status-badge status-confirmed" style="margin-top:8px;">
-                    <span class="status-dot"></span> Confirmed
-                </span>
-            </div>
-        </div>
-    `).join('');
-}
-
 async function addSummons() {
-    const complainantName = document.getElementById('summons-complainant').value.trim();
-    const respondentName = document.getElementById('summons-respondent').value.trim();
-    const caseTitle = document.getElementById('summons-case').value.trim();
-    const date = document.getElementById('summons-date').value;
-    const time = document.getElementById('summons-time').value;
-    const location = document.getElementById('summons-location').value;
+    const complainantName = document.getElementById('summons-complainant')?.value.trim();
+    const respondentName = document.getElementById('summons-respondent')?.value.trim();
+    const caseTitle = document.getElementById('summons-case')?.value.trim();
+    const date = document.getElementById('summons-date')?.value;
+    const time = document.getElementById('summons-time')?.value;
+    const location = document.getElementById('summons-location')?.value;
 
     if (!complainantName || !respondentName || !caseTitle || !date || !time) {
         showToast('Please fill all required fields.', 'warning');
@@ -375,7 +300,7 @@ async function addSummons() {
     }
 
     try {
-        await db.collection('summons').add({
+        await addDoc(collection(db, "summons"), {
             complainantName,
             respondentName,
             caseTitle,
@@ -383,59 +308,79 @@ async function addSummons() {
             time,
             location,
             status: 'confirmed',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            createdAt: serverTimestamp()
         });
 
-        closeModal('summonsModal');
         showToast('Summons scheduled!', 'success');
-        renderSummons();
-        updateStats();
+        clearSummonsForm();
+        
+        if (document.getElementById('summons-list')) {
+            renderSummons();
+        }
     } catch (error) {
-        showToast('Failed to schedule: ' + error.message, 'danger');
+        showToast('Failed: ' + error.message, 'danger');
+    }
+}
+
+function clearSummonsForm() {
+    const fields = ['summons-complainant', 'summons-respondent', 'summons-case', 'summons-date', 'summons-time'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+}
+
+async function renderSummons() {
+    const container = document.getElementById('summons-list');
+    if (!container) return;
+    
+    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">Loading...</p>';
+
+    try {
+        const q = query(collection(db, "summons"), orderBy("date", "asc"));
+        const snapshot = await getDocs(q);
+        const summons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        if (summons.length === 0) {
+            container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">No scheduled summons.</p>';
+            return;
+        }
+
+        container.innerHTML = summons.map(s => `
+            <div class="summons-card">
+                <div class="summons-info">
+                    <h4>${escapeHtml(s.caseTitle)}</h4>
+                    <p>Complainant: ${escapeHtml(s.complainantName)} | Respondent: ${escapeHtml(s.respondentName)}</p>
+                    <p>📍 ${escapeHtml(s.location)}</p>
+                </div>
+                <div class="summons-date">
+                    <div class="date">${s.date ? new Date(s.date).toLocaleDateString() : 'N/A'}</div>
+                    <div class="time">${escapeHtml(s.time)}</div>
+                    <span class="status-badge status-confirmed">
+                        <span class="status-dot"></span> Confirmed
+                    </span>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        container.innerHTML = `<p style="text-align:center; color:var(--danger);">Error: ${error.message}</p>`;
     }
 }
 
 // ==================== COURT BOOKINGS ====================
 
-async function fetchCourtBookings(date) {
-    const snapshot = await db.collection('courtBookings')
-        .where('date', '==', date)
-        .get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-}
-
-async function renderCourt(selectedDate = new Date().toISOString().split('T')[0]) {
-    const container = document.getElementById('court-schedule');
-    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d; grid-column:1/-1;">Loading...</p>';
-
-    const bookings = await fetchCourtBookings(selectedDate);
-    const bookedMap = new Map(bookings.map(b => [b.timeSlot, b]));
-
-    container.innerHTML = TIME_SLOTS.map(slot => {
-        const booking = bookedMap.get(slot);
-        const isBooked = !!booking;
-        return `
-            <div class="schedule-slot ${isBooked ? 'booked' : 'available'}">
-                <div class="schedule-time">${slot}</div>
-                <div class="schedule-status">${isBooked ? 'Booked' : 'Available'}</div>
-                ${isBooked ? `
-                    <div class="schedule-booker">
-                        ${escapeHtml(booking.bookerName)}<br>
-                        ${escapeHtml(booking.activity)}
-                    </div>
-                ` : '<div class="schedule-booker">Click to book</div>'}
-            </div>
-        `;
-    }).join('');
-
-    document.getElementById('court-date-title').textContent = `Schedule for ${new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`;
-}
+const TIME_SLOTS = [
+    '6:00 AM - 7:00 AM', '7:00 AM - 8:00 AM', '8:00 AM - 9:00 AM',
+    '9:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM',
+    '1:00 PM - 2:00 PM', '2:00 PM - 3:00 PM', '3:00 PM - 4:00 PM',
+    '4:00 PM - 5:00 PM', '5:00 PM - 6:00 PM', '6:00 PM - 7:00 PM'
+];
 
 async function bookCourt() {
-    const bookerName = document.getElementById('court-booker').value.trim();
-    const date = document.getElementById('court-date').value;
-    const timeSlot = document.getElementById('court-timeslot').value;
-    const activity = document.getElementById('court-activity').value;
+    const bookerName = document.getElementById('court-booker')?.value.trim();
+    const date = document.getElementById('court-date')?.value;
+    const timeSlot = document.getElementById('court-timeslot')?.value;
+    const activity = document.getElementById('court-activity')?.value;
 
     if (!bookerName || !date) {
         showToast('Please enter name and select date.', 'warning');
@@ -443,38 +388,92 @@ async function bookCourt() {
     }
 
     try {
-        // Check if already booked
-        const existing = await db.collection('courtBookings')
-            .where('date', '==', date)
-            .where('timeSlot', '==', timeSlot)
-            .get();
+        // Check if slot is already booked
+        const q = query(
+            collection(db, "courtBookings"),
+            where("date", "==", date),
+            where("timeSlot", "==", timeSlot)
+        );
+        const snapshot = await getDocs(q);
 
-        if (!existing.empty) {
+        if (!snapshot.empty) {
             showToast('This time slot is already booked.', 'danger');
             return;
         }
 
-        await db.collection('courtBookings').add({
+        await addDoc(collection(db, "courtBookings"), {
             userId: currentUser.uid,
             bookerName,
             date,
             timeSlot,
             activity,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            createdAt: serverTimestamp()
         });
 
-        closeModal('courtModal');
         showToast(`Court booked for ${bookerName}!`, 'success');
-        renderCourt(date);
-        updateStats();
+        clearCourtForm();
+        
+        if (document.getElementById('court-schedule')) {
+            renderCourt(date);
+        }
     } catch (error) {
         showToast('Booking failed: ' + error.message, 'danger');
     }
 }
 
+function clearCourtForm() {
+    const fields = ['court-booker', 'court-date'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+}
+
+async function renderCourt(selectedDate) {
+    const container = document.getElementById('court-schedule');
+    if (!container) return;
+    
+    const date = selectedDate || new Date().toISOString().split('T')[0];
+    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d; grid-column:1/-1;">Loading...</p>';
+
+    try {
+        const q = query(
+            collection(db, "courtBookings"),
+            where("date", "==", date)
+        );
+        const snapshot = await getDocs(q);
+        const bookings = snapshot.docs.map(doc => doc.data());
+        const bookedMap = new Map(bookings.map(b => [b.timeSlot, b]));
+
+        container.innerHTML = TIME_SLOTS.map(slot => {
+            const booking = bookedMap.get(slot);
+            const isBooked = !!booking;
+            return `
+                <div class="schedule-slot ${isBooked ? 'booked' : 'available'}">
+                    <div class="schedule-time">${slot}</div>
+                    <div class="schedule-status">${isBooked ? 'Booked' : 'Available'}</div>
+                    ${isBooked ? `
+                        <div class="schedule-booker">
+                            ${escapeHtml(booking.bookerName)}<br>
+                            ${escapeHtml(booking.activity)}
+                        </div>
+                    ` : '<div class="schedule-booker">Click to book</div>'}
+                </div>
+            `;
+        }).join('');
+
+        const dateTitle = document.getElementById('court-date-title');
+        if (dateTitle) {
+            dateTitle.textContent = `Schedule for ${new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`;
+        }
+    } catch (error) {
+        container.innerHTML = `<p style="text-align:center; color:var(--danger);">Error: ${error.message}</p>`;
+    }
+}
+
 function filterCourt(period, btn) {
     document.querySelectorAll('#page-court .filter-tab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
     
     let date = new Date().toISOString().split('T')[0];
     if (period === 'tomorrow') {
@@ -482,149 +481,8 @@ function filterCourt(period, btn) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         date = tomorrow.toISOString().split('T')[0];
     }
-    // For 'week', you could implement date range logic
     
     renderCourt(date);
-}
-
-// ==================== DASHBOARD & STATS ====================
-
-async function updateStats() {
-    try {
-        const complaintsSnap = await db.collection('complaints').where('status', '!=', 'resolved').get();
-        const residentsSnap = await db.collection('profiles').get();
-        const summonsSnap = await db.collection('summons').where('status', '==', 'confirmed').get();
-        const today = new Date().toISOString().split('T')[0];
-        const courtSnap = await db.collection('courtBookings').where('date', '==', today).get();
-
-        document.getElementById('stat-complaints').textContent = complaintsSnap.size;
-        document.getElementById('stat-residents').textContent = residentsSnap.size;
-        document.getElementById('stat-summons').textContent = summonsSnap.size;
-        document.getElementById('stat-court').textContent = courtSnap.size;
-    } catch (error) {
-        console.error('Stats error:', error);
-    }
-}
-
-async function loadRecentComplaints() {
-    const container = document.getElementById('recent-complaints');
-    const snapshot = await db.collection('complaints')
-        .orderBy('createdAt', 'desc')
-        .limit(3)
-        .get();
-
-    if (snapshot.empty) {
-        container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:20px;">No recent complaints.</p>';
-        return;
-    }
-
-    container.innerHTML = snapshot.docs.map(doc => {
-        const c = doc.data();
-        return `
-            <div class="complaint-item" style="padding:14px;">
-                <div class="complaint-header">
-                    <span class="complaint-category ${categoryConfig[c.category]?.class || 'cat-other'}">
-                        ${categoryConfig[c.category]?.label || '📌 Other'}
-                    </span>
-                </div>
-                <div class="complaint-title">${escapeHtml(c.title)}</div>
-                <div class="complaint-meta">
-                    <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-async function loadActivityTimeline() {
-    const container = document.getElementById('activity-timeline');
-    
-    // Combine recent activities from different collections
-    const activities = [];
-    
-    const complaintsSnap = await db.collection('complaints')
-        .orderBy('createdAt', 'desc')
-        .limit(5)
-        .get();
-    
-    complaintsSnap.forEach(doc => {
-        const data = doc.data();
-        activities.push({
-            time: data.createdAt ? data.createdAt.toDate() : new Date(),
-            event: `New complaint: ${data.title}`
-        });
-    });
-
-    const courtSnap = await db.collection('courtBookings')
-        .orderBy('createdAt', 'desc')
-        .limit(3)
-        .get();
-    
-    courtSnap.forEach(doc => {
-        const data = doc.data();
-        activities.push({
-            time: data.createdAt ? data.createdAt.toDate() : new Date(),
-            event: `Court booked by ${data.bookerName}`
-        });
-    });
-
-    // Sort by time
-    activities.sort((a, b) => b.time - a.time);
-    const recent = activities.slice(0, 6);
-
-    if (recent.length === 0) {
-        container.innerHTML = '<p style="text-align:center; color:#7f8c8d;">No recent activity.</p>';
-        return;
-    }
-
-    container.innerHTML = recent.map(a => `
-        <div class="timeline-item">
-            <div class="time">${a.time.toLocaleString()}</div>
-            <div class="event">${escapeHtml(a.event)}</div>
-        </div>
-    `).join('');
-}
-
-// ==================== MAP ====================
-
-function initMap() {
-    if (mapInstance) {
-        mapInstance.invalidateSize();
-        return;
-    }
-
-    // San Juan, Iriga City coordinates
-    mapInstance = L.map('map').setView([13.4150, 123.4300], 15);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(mapInstance);
-
-    // Barangay marker
-    L.marker([13.4150, 123.4300])
-        .addTo(mapInstance)
-        .bindPopup('<b>🏛️ Barangay San Juan Hall</b><br>Iriga City, Camarines Sur')
-        .openPopup();
-
-    // Sample complaint markers
-    const markers = [
-        { lat: 13.4165, lng: 123.4280, icon: '🚧', label: 'Roadwork - Rizal St' },
-        { lat: 13.4135, lng: 123.4320, icon: '💡', label: 'Lightpost - Purok 3' },
-        { lat: 13.4170, lng: 123.4250, icon: '🔧', label: 'Drainage - Purok 2' }
-    ];
-
-    markers.forEach(m => {
-        const icon = L.divIcon({
-            html: `<div style="font-size:24px;">${m.icon}</div>`,
-            className: '',
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-        });
-
-        L.marker([m.lat, m.lng], { icon })
-            .addTo(mapInstance)
-            .bindPopup(`<b>${m.label}</b>`);
-    });
 }
 
 // ==================== UTILITIES ====================
@@ -636,26 +494,45 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function stringToColor(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const c = (hash & 0x00ffffff).toString(16).toUpperCase();
-    return '#' + '00000'.substring(0, 6 - c.length) + c;
+function formatDate(timestamp) {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString();
+}
+
+function getCategoryLabel(category) {
+    const labels = {
+        roadwork: '🚧 Roadwork',
+        lightpost: '💡 Lightpost',
+        drainage: '🔧 Drainage',
+        noise: '📢 Noise',
+        garbage: '🗑️ Garbage',
+        other: '📌 Other'
+    };
+    return labels[category] || '📌 Other';
+}
+
+function getStatusLabel(status) {
+    const labels = {
+        pending: 'Pending',
+        progress: 'In Progress',
+        resolved: 'Resolved',
+        confirmed: 'Confirmed'
+    };
+    return labels[status] || 'Pending';
 }
 
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
+    if (!container) {
+        alert(`${type.toUpperCase()}: ${message}`);
+        return;
+    }
+    
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     
-    const icons = {
-        success: '✅',
-        danger: '❌',
-        warning: '⚠️'
-    };
-    
+    const icons = { success: '✅', danger: '❌', warning: '⚠️' };
     toast.innerHTML = `${icons[type] || 'ℹ️'} ${message}`;
     container.appendChild(toast);
 
@@ -664,45 +541,31 @@ function showToast(message, type = 'success') {
 
 // ==================== INITIALIZATION ====================
 
-async function initializeApp() {
-    await updateStats();
-    await renderComplaints('all', 'complaint-list');
-    await loadRecentComplaints();
-    await loadActivityTimeline();
-    await renderResidents();
-    await renderSummons();
-    
-    // Set default dates
+// Set default dates and initialize
+document.addEventListener('DOMContentLoaded', () => {
+    // Set today's date for date inputs
     const today = new Date().toISOString().split('T')[0];
     document.querySelectorAll('input[type="date"]').forEach(input => {
         if (!input.value) input.value = today;
     });
-}
 
-// Service Worker registration for PWA
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {
-        console.log('Service Worker registration skipped');
-    });
-}
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+    // Make functions globally available for onclick handlers
+    window.handleLogin = handleLogin;
+    window.handleSignup = handleSignup;
+    window.handleLogout = handleLogout;
+    window.toggleAuthMode = toggleAuthMode;
+    window.submitComplaint = submitComplaint;
+    window.clearComplaintForm = clearComplaintForm;
+    window.filterComplaints = filterComplaints;
+    window.renderComplaints = renderComplaints;
+    window.addSummons = addSummons;
+    window.clearSummonsForm = clearSummonsForm;
+    window.renderSummons = renderSummons;
+    window.bookCourt = bookCourt;
+    window.clearCourtForm = clearCourtForm;
+    window.renderCourt = renderCourt;
+    window.filterCourt = filterCourt;
+});
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCUn_OVro6-NBfIAn0SAcGZeV25HqiCvlc",
-  authDomain: "barangay-san-juan.firebaseapp.com",
-  projectId: "barangay-san-juan",
-  storageBucket: "barangay-san-juan.firebasestorage.app",
-  messagingSenderId: "987977241267",
-  appId: "1:987977241267:web:4685a282641fce2ccad6c6",
-  measurementId: "G-5XWG6ET1CE"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+// Export for module usage (optional)
+export { auth, db };
