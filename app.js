@@ -147,12 +147,8 @@ async function initializeApp() {
     }
     
     if (currentPage === 'court.html') {
-        // Initialize date picker default
-        const datePicker = document.getElementById('court-date-picker');
-        if(datePicker && !datePicker.value) {
-            datePicker.value = new Date().toISOString().split('T')[0];
-        }
-        await renderCourt();
+        // Call initCalendar with true to force current month/year
+        await initCalendar(true);
     }
     
     if (currentPage === 'map.html') {
@@ -469,7 +465,13 @@ let selectedDate = new Date();
 let allBookings = [];
 
 // Initialize Calendar
-async function initCalendar() {
+async function initCalendar(resetDate = false) {
+    // If resetDate is true (on page load), force current date
+    if (resetDate) {
+        currentMonth = new Date();
+        selectedDate = new Date();
+    }
+    
     renderCalendarHeader();
     await fetchMonthBookings();
     renderCalendarGrid();
@@ -477,7 +479,8 @@ async function initCalendar() {
 
 function renderCalendarHeader() {
     const options = { month: 'long', year: 'numeric' };
-    document.getElementById('current-month').textContent = currentMonth.toLocaleDateString('en-US', options);
+    const el = document.getElementById('current-month');
+    if(el) el.textContent = currentMonth.toLocaleDateString('en-US', options);
 }
 
 async function fetchMonthBookings() {
@@ -500,6 +503,8 @@ async function fetchMonthBookings() {
 
 function renderCalendarGrid() {
     const grid = document.getElementById('calendar-grid');
+    if(!grid) return;
+
     // Clear old days (keep headers)
     const headers = Array.from(grid.children).slice(0, 7);
     grid.innerHTML = '';
@@ -525,25 +530,20 @@ function renderCalendarGrid() {
         
         const cell = document.createElement('div');
         cell.className = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
-        cell.setAttribute('data-count', dayBookings.length); // For mobile CSS
+        cell.setAttribute('data-count', dayBookings.length);
         cell.onclick = () => {
             selectedDate = new Date(year, month, day);
-            renderCalendarGrid(); // Re-render to update selection
+            renderCalendarGrid(); // Re-render to update selection style
         };
         
         // Render bookings inside grid
         let bookingsHtml = '';
         if (dayBookings.length > 0) {
-            // Sort by time
             dayBookings.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
-            
             bookingsHtml = '<div class="grid-bookings">';
             dayBookings.forEach(b => {
-                const time = (b.startTime && b.endTime) 
-                    ? `${b.startTime} - ${b.endTime}` 
-                    : 'All Day';
+                const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
                 const isAdmin = b.isAdminBooking;
-                
                 bookingsHtml += `
                     <div class="grid-booking ${isAdmin ? 'admin' : ''}">
                         <div class="grid-time">${time}</div>
@@ -555,19 +555,17 @@ function renderCalendarGrid() {
         }
         
         cell.innerHTML = `
-            <div class="day-top">
-                <div class="day-number">${day}</div>
-            </div>
+            <div class="day-top"><div class="day-number">${day}</div></div>
             ${bookingsHtml}
         `;
-        
         grid.appendChild(cell);
     }
 }
 
+// Change Month (Arrow Buttons)
 function changeMonth(delta) {
     currentMonth.setMonth(currentMonth.getMonth() + delta);
-    initCalendar();
+    initCalendar(false); // Don't reset date, just render new month
 }
 
 // Open Booking Modal
@@ -594,29 +592,16 @@ async function bookCourt() {
     try {
         const reqStart = toMinutes(start);
         const reqEnd = toMinutes(end);
-        
         const hasOverlap = allBookings.some(b => {
             if (b.date !== date) return false;
-            const bStart = toMinutes(b.startTime);
-            const bEnd = toMinutes(b.endTime);
-            return (reqStart < bEnd && reqEnd > bStart);
+            return (reqStart < toMinutes(b.endTime) && reqEnd > toMinutes(b.startTime));
         });
         
-        if (hasOverlap) {
-            showToast('Time slot overlaps with existing booking!', 'danger');
-            return;
-        }
+        if (hasOverlap) { showToast('Time slot overlaps!', 'danger'); return; }
         
         await db.collection('courtBookings').add({
-            userId: currentUser.uid,
-            userName: currentUser.email,
-            bookerName: name,
-            date: date,
-            startTime: start,
-            endTime: end,
-            activity: activity,
-            isAdminBooking: false,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity,
+            isAdminBooking: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
         closeModal('courtModal');
@@ -624,10 +609,7 @@ async function bookCourt() {
         await fetchMonthBookings();
         renderCalendarGrid();
         document.getElementById('court-booker').value = '';
-        
-    } catch (error) {
-        showToast('Failed: ' + error.message, 'danger');
-    }
+    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
 }
 
 // Admin Clear
@@ -648,19 +630,11 @@ async function adminClearDay() {
 }
 
 // Helpers
-function formatTime(timeStr) {
-    if (!timeStr) return '';
-    const [h, m] = timeStr.split(':');
-    const hour = parseInt(h);
-    return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
-}
-
 function toMinutes(timeStr) {
     if (!timeStr) return 0;
     const [h, m] = timeStr.split(':').map(Number);
     return (h * 60) + m;
 }
-
 function escapeHtml(text) {
     if (!text) return '';
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -674,6 +648,9 @@ window.bookCourt = bookCourt;
 window.adminClearDay = adminClearDay;
 window.openModal = function(id) { document.getElementById(id).classList.add('show'); };
 window.closeModal = function(id) { document.getElementById(id).classList.remove('show'); };
+window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
+window.toggleAccountDropdown = function() { document.getElementById('accountDropdown')?.classList.toggle('show'); };
+window.handleLogout = async function() { await firebase.auth().signOut(); window.location.href='login.html'; };
 window.saveProfileChanges = async function() {
     const fn = document.getElementById('edit-first-name')?.value;
     const ln = document.getElementById('edit-last-name')?.value;
@@ -686,12 +663,6 @@ window.saveProfileChanges = async function() {
         } catch(e) { showToast('Error', 'danger'); }
     }
 };
-window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
-window.toggleAccountDropdown = function() {
-    const d = document.getElementById('accountDropdown');
-    if(d) d.classList.toggle('show');
-};
-window.handleLogout = async function() { await firebase.auth().signOut(); window.location.href='login.html'; };
 
 // ==================== UTILS ====================
 function stringToColor(str) {
