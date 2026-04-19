@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complaints - Barangay San Juan</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Sidebar (same as index.html) -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">🏛️</div>
+            <h2>Barangay San Juan</h2>
+            <p>Iriga City, Camarines Sur</p>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="index.html"><span class="icon">📊</span> Dashboard</a>
+            <a href="complaints.html" class="active"><span class="icon">📝</span> Complaints & Concerns</a>
+            <a href="residents.html"><span class="icon">👥</span> Residents</a>
+            <div class="nav-section-label">Scheduling</div>
+            <a href="summons.html"><span class="icon">📋</span> Scheduled Summons</a>
+            <a href="court.html"><span class="icon">🏟️</span> Multipurpose Court</a>
+            <div class="nav-section-label">Information</div>
+            <a href="map.html"><span class="icon">🗺️</span> Barangay Map</a>
+            <a href="announcements.html"><span class="icon">📢</span> Announcements</a>
+            <a href="#" onclick="handleLogout()"><span class="icon">🚪</span> Logout</a>
+        </nav>
+    </aside>
+
+    <div class="main">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
+            </div>
+            <div class="topbar-right">
+                <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+                <div class="user-profile" onclick="toggleAccountDropdown()">
+                    <div class="user-avatar" id="user-avatar">JD</div>
+                    <div class="user-info">
+                        <div class="name" id="user-name">Loading...</div>
+                        <div class="role" id="user-role">Resident</div>
+                    </div>
+                </div>
+                
+                <!-- Account Dropdown (same as index.html) -->
+                <div class="account-dropdown" id="accountDropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-avatar" id="dropdown-avatar">JD</div>
+                        <div class="dropdown-info">
+                            <div class="dropdown-name" id="dropdown-name">User Name</div>
+                            <div class="dropdown-email" id="dropdown-email">user@example.com</div>
+                        </div>
+                    </div>
+                    <div class="dropdown-menu">
+                        <button class="dropdown-item" onclick="openAccountModal()"><span class="dropdown-icon">👤</span>My Profile</button>
+                        <button class="dropdown-item" onclick="openAccountSettings()"><span class="dropdown-icon">⚙️</span>Account Settings</button>
+                        <button class="dropdown-item" onclick="viewMyComplaints()"><span class="dropdown-icon">📋</span>My Complaints</button>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item logout" onclick="handleLogout()"><span class="dropdown-icon">🚪</span>Logout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <h1 class="page-title">Complaints & Concerns</h1>
+            <p class="page-subtitle">File and track community concerns in Barangay San Juan.</p>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+                <div class="filter-tabs">
+                    <button class="filter-tab active" onclick="filterComplaints('all', this)">All</button>
+                    <button class="filter-tab" onclick="filterComplaints('pending', this)">⏳ Pending</button>
+                    <button class="filter-tab" onclick="filterComplaints('progress', this)">🔄 In Progress</button>
+                    <button class="filter-tab" onclick="filterComplaints('resolved', this)">✅ Resolved</button>
+                </div>
+                <button class="btn btn-primary" onclick="openModal('complaintModal')">➕ File New Complaint</button>
+            </div>
+            
+            <div class="complaint-list" id="complaintList"></div>
+        </div>
+    </div>
+
+    <!-- Complaint Modal -->
+    <div class="modal-overlay" id="complaintModal">
+        <div class="modal">
+            <div class="modal-header"><h3>📝 File a Complaint</h3><button class="modal-close" onclick="closeModal('complaintModal')">✕</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label>Category *</label><select id="complaint-category"><option value="">Select category...</option><option value="roadwork">🚧 Roadwork</option><option value="lightpost">💡 Lightpost</option><option value="drainage">🔧 Drainage</option><option value="noise">📢 Noise</option><option value="garbage">🗑️ Garbage</option><option value="other">📌 Other</option></select></div>
+                <div class="form-group"><label>Title *</label><input type="text" id="complaint-title" placeholder="Brief description"></div>
+                <div class="form-group"><label>Description *</label><textarea id="complaint-desc" placeholder="Provide details..."></textarea></div>
+                <div class="form-group"><label>Purok *</label><select id="complaint-purok"><option value="">Select purok...</option><option value="Purok 1">Purok 1</option><option value="Purok 2">Purok 2</option><option value="Purok 3">Purok 3</option><option value="Purok 4">Purok 4</option><option value="Purok 5">Purok 5</option></select></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('complaintModal')">Cancel</button><button class="btn btn-primary" onclick="submitComplaint()">Submit</button></div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
