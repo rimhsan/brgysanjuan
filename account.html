@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account - Barangay San Juan</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Account Page Specific */
+        .account-layout { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
+        .account-nav { background: white; border-radius: 14px; border: 1.5px solid var(--border); padding: 16px; height: fit-content; position: sticky; top: 90px; }
+        .account-nav button { width: 100%; text-align: left; padding: 12px 16px; border: none; background: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-light); transition: 0.2s; display: flex; align-items: center; gap: 10px; }
+        .account-nav button:hover { background: var(--bg); color: var(--text); }
+        .account-nav button.active { background: var(--primary); color: white; }
+        
+        .account-content { background: white; border-radius: 14px; border: 1.5px solid var(--border); padding: 32px; }
+        .account-section { display: none; }
+        .account-section.active { display: block; animation: fadeIn 0.3s ease; }
+        .section-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1.5px solid var(--border); }
+        .section-header h2 { font-size: 22px; margin-bottom: 4px; }
+        .section-header p { color: var(--text-light); }
+        
+        .complaints-grid { display: grid; gap: 12px; }
+        .complaint-card { padding: 16px; background: var(--bg); border-radius: 10px; border-left: 4px solid var(--primary); transition: 0.2s; }
+        .complaint-card:hover { transform: translateX(4px); }
+        .complaint-card.progress { border-left-color: var(--accent); }
+        .complaint-card.resolved { border-left-color: var(--success); }
+        .complaint-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .complaint-header h4 { font-size: 16px; margin: 0; }
+        .complaint-desc { font-size: 14px; color: var(--text-light); margin-bottom: 12px; line-height: 1.5; }
+        .complaint-meta { font-size: 12px; color: var(--text-light); display: flex; gap: 16px; }
+        
+        @media (max-width: 900px) {
+            .account-layout { grid-template-columns: 1fr; }
+            .account-nav { position: static; display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
+            .account-nav button { white-space: nowrap; width: auto; }
+            .account-content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">🏛️</div>
+            <h2>Barangay San Juan</h2>
+            <p>Iriga City, Camarines Sur</p>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="index.html"><span class="icon">📊</span> Dashboard</a>
+            <a href="complaints.html"><span class="icon">📝</span> Complaints & Concerns</a>
+            <a href="residents.html"><span class="icon">👥</span> Residents</a>
+            <div class="nav-section-label">Scheduling</div>
+            <a href="summons.html"><span class="icon">📋</span> Scheduled Summons</a>
+            <a href="court.html"><span class="icon">🏟️</span> Multipurpose Court</a>
+            <div class="nav-section-label">Information</div>
+            <a href="map.html"><span class="icon">🗺️</span> Barangay Map</a>
+            <a href="announcements.html"><span class="icon">📢</span> Announcements</a>
+            <a href="#" onclick="handleLogout()"><span class="icon">🚪</span> Logout</a>
+        </nav>
+    </aside>
+
+    <div class="main">
+        <div class="topbar">
+            <div class="topbar-left"><button class="menu-toggle" onclick="toggleSidebar()">☰</button></div>
+            <div class="topbar-right">
+                <div class="user-profile-trigger" onclick="toggleAccountDropdown()">
+                    <div class="user-info-brief">
+                        <span class="user-role-badge" id="user-role-badge">Resident</span>
+                        <span class="user-name-brief" id="user-name-brief">Loading...</span>
+                    </div>
+                    <div class="user-avatar" id="user-avatar">JD</div>
+                    <span class="dropdown-arrow">▼</span>
+                </div>
+                <div class="profile-dropdown" id="accountDropdown">
+                    <div class="dropdown-profile-header">
+                        <div class="dropdown-avatar" id="dropdown-avatar">JD</div>
+                        <div class="dropdown-user-info">
+                            <h4 id="dropdown-name">User Name</h4>
+                            <p id="dropdown-email">email</p>
+                            <span class="role-tag" id="dropdown-role">Resident</span>
+                        </div>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-menu-list">
+                        <button class="dropdown-menu-item" onclick="window.location.href='account.html'">
+                            <span class="menu-icon">👤</span>
+                            <div class="menu-text"><span class="menu-title">My Account</span><span class="menu-desc">Profile, Security & Complaints</span></div>
+                        </button>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <button class="dropdown-menu-item logout-item" onclick="handleLogout()">
+                        <span class="menu-icon">🚪</span><span class="menu-title">Sign Out</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="account-layout">
+                <!-- Side Navigation -->
+                <div class="account-nav">
+                    <button class="active" onclick="switchAccountTab('profile', this)">👤 Profile Info</button>
+                    <button onclick="switchAccountTab('security', this)">🔐 Security</button>
+                    <button onclick="switchAccountTab('complaints', this)">📋 My Complaints</button>
+                </div>
+
+                <!-- Content Area -->
+                <div class="account-content">
+                    <!-- Profile Section -->
+                    <div id="tab-profile" class="account-section active">
+                        <div class="section-header"><h2>Profile Information</h2><p>Update your personal details and purok assignment.</p></div>
+                        <div class="form-row">
+                            <div class="form-group"><label>First Name</label><input type="text" id="acc-first-name"></div>
+                            <div class="form-group"><label>Last Name</label><input type="text" id="acc-last-name"></div>
+                        </div>
+                        <div class="form-group"><label>Email Address</label><input type="email" id="acc-email" readonly style="background:#f8f9fa; cursor:not-allowed;"></div>
+                        <div class="form-group"><label>Purok</label>
+                            <select id="acc-purok"><option value="Purok 1">Purok 1</option><option value="Purok 2">Purok 2</option><option value="Purok 3">Purok 3</option><option value="Purok 4">Purok 4</option><option value="Purok 5">Purok 5</option></select>
+                        </div>
+                        <div class="form-group"><label>Contact Number</label><input type="tel" id="acc-phone" placeholder="09XX XXX XXXX"></div>
+                        <button class="btn btn-primary" onclick="saveAccountProfile()">💾 Save Changes</button>
+                    </div>
+
+                    <!-- Security Section -->
+                    <div id="tab-security" class="account-section">
+                        <div class="section-header"><h2>Security & Notifications</h2><p>Manage your password and alert preferences.</p></div>
+                        <div class="form-group"><label>Current Password</label><input type="password" id="acc-current-pass" placeholder="Required to change password"></div>
+                        <div class="form-row">
+                            <div class="form-group"><label>New Password</label><input type="password" id="acc-new-pass" placeholder="Min 6 characters"></div>
+                            <div class="form-group"><label>Confirm Password</label><input type="password" id="acc-confirm-pass" placeholder="Repeat new password"></div>
+                        </div>
+                        <button class="btn btn-accent" onclick="changeAccountPassword()" style="margin-bottom:32px;">🔑 Update Password</button>
+                        
+                        <div style="padding-top:24px; border-top:1.5px solid var(--border);">
+                            <h3 style="font-size:18px; margin-bottom:16px;">🔔 Notification Preferences</h3>
+                            <div class="notification-setting">
+                                <div><strong>Email Updates</strong><p style="font-size:13px;color:var(--text-light);">Receive complaint status changes via email</p></div>
+                                <label class="toggle-switch"><input type="checkbox" id="acc-notif-email"><span class="toggle-slider"></span></label>
+                            </div>
+                            <button class="btn btn-outline" onclick="saveNotifPrefs()" style="margin-top:16px;">Save Preferences</button>
+                        </div>
+                    </div>
+
+                    <!-- Complaints Section -->
+                    <div id="tab-complaints" class="account-section">
+                        <div class="section-header"><h2>My Complaints</h2><p>Track the status of concerns you've submitted.</p></div>
+                        <div class="complaints-grid" id="my-complaints-list">
+                            <p style="text-align:center; color:var(--text-light); padding:40px;">⏳ Loading your complaints...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
