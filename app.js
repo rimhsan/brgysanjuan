@@ -535,173 +535,267 @@ async function addSummons() {
     } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
 }
 
-// ==================== COURT BOOKINGS (FIXED) ====================
+// ==================== ADMIN COURT MANAGEMENT (IMPROVED) ====================
 
-async function renderCourt(selectedDate = new Date().toISOString().split('T')[0]) {
-    const container = document.getElementById('courtSchedule');
-    const dateTitle = document.getElementById('courtDateTitle');
+// Open Admin Court Modal with pre-filled data if editing
+function openAdminCourtModal(editBooking = null) {
+    // Safety checks
+    const dateInput = document.getElementById('admin-court-date');
+    const slotSelect = document.getElementById('admin-court-slot');
+    const bookerInput = document.getElementById('admin-court-booker');
+    const activitySelect = document.getElementById('admin-court-activity');
     
-    // Exit if elements don't exist (prevents errors on other pages)
-    if (!container) return;
+    if (!dateInput || !slotSelect) {
+        showToast('Admin court modal not found.', 'danger');
+        return;
+    }
     
-    container.innerHTML = '<p style="text-align:center; padding:40px; color:#7f8c8d;">⏳ Loading schedule...</p>';
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = editBooking?.date || today;
+    
+    // Populate time slots
+    slotSelect.innerHTML = TIME_SLOTS.map(t => 
+        `<option value="${t}" ${editBooking?.timeSlot === t ? 'selected' : ''}>${t}</option>`
+    ).join('');
+    
+    // Pre-fill if editing existing booking
+    if (editBooking) {
+        if (bookerInput) bookerInput.value = editBooking.bookerName || '';
+        if (activitySelect) activitySelect.value = editBooking.activity || 'Other';
+        document.getElementById('admin-court-modal-title').textContent = '✏️ Edit Booking';
+        document.getElementById('admin-court-action-btn').textContent = '💾 Update Booking';
+        document.getElementById('admin-court-action-btn').dataset.action = 'update';
+        document.getElementById('admin-court-action-btn').dataset.id = editBooking.id;
+    } else {
+        if (bookerInput) bookerInput.value = '';
+        if (activitySelect) activitySelect.value = 'Basketball Practice';
+        document.getElementById('admin-court-modal-title').textContent = '⚙️ Court Booking Manager';
+        document.getElementById('admin-court-action-btn').textContent = '✅ Book/Override';
+        document.getElementById('admin-court-action-btn').dataset.action = 'book';
+        document.getElementById('admin-court-action-btn').dataset.id = '';
+    }
+    
+    openModal('adminCourtModal');
+}
+
+// Admin Book/Override Court Slot
+async function adminBookCourt() {
+    // Admin check
+    if (userRole !== 'admin') {
+        showToast('Admin access required.', 'warning');
+        return;
+    }
+    
+    const dateInput = document.getElementById('admin-court-date');
+    const slotSelect = document.getElementById('admin-court-slot');
+    const bookerInput = document.getElementById('admin-court-booker');
+    const activitySelect = document.getElementById('admin-court-activity');
+    const actionBtn = document.getElementById('admin-court-action-btn');
+    
+    if (!dateInput || !slotSelect || !bookerInput || !activitySelect) {
+        showToast('Modal fields not found.', 'danger');
+        return;
+    }
+    
+    const date = dateInput.value;
+    const timeSlot = slotSelect.value;
+    const bookerName = bookerInput.value.trim() || 'Admin Override';
+    const activity = activitySelect.value;
+    const action = actionBtn?.dataset.action || 'book';
+    const bookingId = actionBtn?.dataset.id;
+    
+    // Validation
+    if (!date) { showToast('Please select a date.', 'warning'); return; }
+    if (!timeSlot) { showToast('Please select a time slot.', 'warning'); return; }
+    
+    // Show loading state
+    if (actionBtn) {
+        actionBtn.disabled = true;
+        actionBtn.innerHTML = '⏳ Processing...';
+    }
     
     try {
-        // Format date for Firestore (YYYY-MM-DD)
-        const queryDate = selectedDate || new Date().toISOString().split('T')[0];
-        
-        // Query Firestore - with error handling for missing indexes
-        let bookings = [];
-        try {
-            const snapshot = await db.collection('courtBookings')
-                .where('date', '==', queryDate)
+        if (action === 'update' && bookingId) {
+            // Update existing booking
+            await db.collection('courtBookings').doc(bookingId).update({
+                bookerName,
+                activity,
+                updatedBy: currentUser.email,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showToast('Booking updated!', 'success');
+        } else {
+            // Check if slot is already booked (for new bookings)
+            const existing = await db.collection('courtBookings')
+                .where('date', '==', date)
+                .where('timeSlot', '==', timeSlot)
                 .get();
-            bookings = snapshot.docs.map(doc => doc.data());
-        } catch (queryError) {
-            console.warn('Query failed (maybe missing index):', queryError.message);
-            // Fallback: fetch all and filter client-side (slower but works)
-            const allSnapshot = await db.collection('courtBookings').get();
-            bookings = allSnapshot.docs
-                .map(doc => doc.data())
-                .filter(b => b.date === queryDate);
+                
+            if (!existing.empty && action !== 'override') {
+                // Ask if admin wants to override
+                if (!confirm(`This slot is already booked by "${existing.docs[0].data().bookerName}". Override?`)) {
+                    if (actionBtn) {
+                        actionBtn.disabled = false;
+                        actionBtn.textContent = action === 'update' ? '💾 Update Booking' : '✅ Book/Override';
+                    }
+                    return;
+                }
+                // Override: update the existing doc
+                await existing.docs[0].ref.update({
+                    bookerName,
+                    activity,
+                    updatedBy: currentUser.email,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('Booking overridden!', 'success');
+            } else {
+                // Create new booking
+                await db.collection('courtBookings').add({
+                    userId: currentUser.uid,
+                    bookerName,
+                    date,
+                    timeSlot,
+                    activity,
+                    createdBy: currentUser.email,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    isAdminBooking: true
+                });
+                showToast('Slot booked by admin!', 'success');
+            }
         }
         
-        // Create a map for quick lookup
-        const bookedMap = new Map(bookings.map(b => [b.timeSlot, b]));
+        closeModal('adminCourtModal');
         
-        // Generate time slots
-        container.innerHTML = TIME_SLOTS.map(slot => {
-            const booking = bookedMap.get(slot);
-            const isBooked = !!booking;
-            return `
-                <div class="schedule-slot ${isBooked ? 'booked' : 'available'}">
-                    <div class="schedule-time">${slot}</div>
-                    <div class="schedule-status">${isBooked ? 'Booked' : 'Available'}</div>
-                    ${isBooked ? `
-                        <div class="schedule-booker">
-                            ${escapeHtml(booking.bookerName)}<br>
-                            <small>${escapeHtml(booking.activity)}</small>
-                        </div>
-                    ` : '<div class="schedule-booker" style="cursor:pointer;" onclick="openModal(\'courtModal\')">📅 Book</div>'}
-                </div>
-            `;
-        }).join('');
-        
-        // Update date title
-        if (dateTitle) {
-            const formatted = new Date(queryDate).toLocaleDateString('en-US', { 
-                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' 
-            });
-            dateTitle.textContent = `Schedule for ${formatted}`;
+        // Refresh court view if on court page
+        if (currentPage === 'court.html') {
+            renderCourt(date);
         }
         
     } catch (error) {
-        console.error('Court render error:', error);
-        container.innerHTML = `<p style="text-align:center; color:var(--danger); padding:20px;">⚠️ Error loading schedule. Please try again later.</p>`;
+        console.error('Admin court error:', error);
+        showToast('Failed: ' + error.message, 'danger');
+    } finally {
+        // Reset button state
+        if (actionBtn) {
+            actionBtn.disabled = false;
+            actionBtn.textContent = action === 'update' ? '💾 Update Booking' : '✅ Book/Override';
+        }
     }
 }
 
-async function bookCourt() {
-    const bookerName = document.getElementById('court-booker')?.value.trim();
-    const date = document.getElementById('court-date')?.value;
-    const timeSlot = document.getElementById('court-timeslot')?.value;
-    const activity = document.getElementById('court-activity')?.value;
+// Admin Remove Booking
+async function adminRemoveBooking() {
+    if (userRole !== 'admin') {
+        showToast('Admin access required.', 'warning');
+        return;
+    }
     
-    if (!bookerName || !date || !timeSlot) { 
-        showToast('Please fill name, date, and time slot.', 'warning'); 
-        return; 
+    const dateInput = document.getElementById('admin-court-date');
+    const slotSelect = document.getElementById('admin-court-slot');
+    
+    if (!dateInput || !slotSelect) {
+        showToast('Modal fields not found.', 'danger');
+        return;
+    }
+    
+    const date = dateInput.value;
+    const timeSlot = slotSelect.value;
+    
+    if (!date || !timeSlot) {
+        showToast('Please select date and time slot.', 'warning');
+        return;
+    }
+    
+    // Confirm deletion
+    if (!confirm(`⚠️ Delete booking for ${timeSlot} on ${new Date(date).toLocaleDateString()}? This cannot be undone.`)) {
+        return;
     }
     
     try {
-        // Check if already booked
-        const existing = await db.collection('courtBookings')
+        const snapshot = await db.collection('courtBookings')
             .where('date', '==', date)
             .where('timeSlot', '==', timeSlot)
             .get();
             
-        if (!existing.empty) { 
-            showToast('This time slot is already booked.', 'danger'); 
-            return; 
+        if (snapshot.empty) {
+            showToast('No booking found for this slot.', 'warning');
+            return;
         }
         
-        await db.collection('courtBookings').add({
-            userId: currentUser.uid, 
-            bookerName, 
-            date, 
-            timeSlot, 
-            activity,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        // Delete the booking
+        await snapshot.docs[0].ref.delete();
         
-        closeModal('courtModal'); 
-        showToast(`Court booked for ${bookerName}!`, 'success'); 
-        renderCourt(date); // Refresh the view
+        showToast('Booking removed.', 'success');
+        closeModal('adminCourtModal');
+        
+        // Refresh court view
+        if (currentPage === 'court.html') {
+            renderCourt(date);
+        }
         
     } catch (error) {
-        console.error('Booking error:', error);
-        showToast('Booking failed: ' + error.message, 'danger');
+        console.error('Remove booking error:', error);
+        showToast('Failed: ' + error.message, 'danger');
     }
 }
 
-function filterCourt(period, btn) {
-    // Update active tab styling
-    document.querySelectorAll('#page-court .filter-tab').forEach(t => t.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+// Admin: Load existing bookings into a list for management (optional enhancement)
+async function loadAdminCourtList(date = null) {
+    const container = document.getElementById('admin-court-list');
+    if (!container) return;
     
-    // Calculate date based on period
-    let targetDate = new Date();
-    if (period === 'tomorrow') {
-        targetDate.setDate(targetDate.getDate() + 1);
-    } else if (period === 'week') {
-        // For "week", just show today for simplicity
-        // You could expand this to show a week view later
-    }
-    
-    const dateStr = targetDate.toISOString().split('T')[0];
-    renderCourt(dateStr);
-}
-
-// Admin Court
-function openAdminCourtModal() {
-    document.getElementById('admin-court-date').value = new Date().toISOString().split('T')[0];
-    const slotSelect = document.getElementById('admin-court-slot');
-    if(slotSelect) slotSelect.innerHTML = TIME_SLOTS.map(t => `<option value="${t}">${t}</option>`).join('');
-    openModal('adminCourtModal');
-}
-
-async function adminBookCourt() {
-    const date = document.getElementById('admin-court-date')?.value;
-    const timeSlot = document.getElementById('admin-court-slot')?.value;
-    const bookerName = document.getElementById('admin-court-booker')?.value.trim() || 'Admin Override';
-    const activity = document.getElementById('admin-court-activity')?.value;
-    
-    if (!date) { showToast('Select date.', 'warning'); return; }
+    container.innerHTML = '<p style="text-align:center; padding:20px;">⏳ Loading...</p>';
     
     try {
-        const existing = await db.collection('courtBookings').where('date', '==', date).where('timeSlot', '==', timeSlot).get();
-        if (!existing.empty) {
-            await existing.docs[0].ref.update({ bookerName, activity, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-            showToast('Overridden!', 'success');
-        } else {
-            await db.collection('courtBookings').add({ userId: 'admin', bookerName, date, timeSlot, activity, createdBy: currentUser.email, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-            showToast('Booked by Admin!', 'success');
+        let query = db.collection('courtBookings').orderBy('date', 'desc').orderBy('timeSlot');
+        
+        // Filter by date if provided
+        if (date) {
+            query = db.collection('courtBookings')
+                .where('date', '==', date)
+                .orderBy('timeSlot');
         }
-        closeModal('adminCourtModal'); renderCourt(date);
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
+        
+        const snapshot = await query.get();
+        const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (bookings.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:20px;">No bookings found.</p>';
+            return;
+        }
+        
+        container.innerHTML = bookings.map(b => `
+            <div class="court-booking-item">
+                <div>
+                    <strong>${b.timeSlot}</strong> on ${new Date(b.date).toLocaleDateString()}<br>
+                    <small>${escapeHtml(b.bookerName)} • ${escapeHtml(b.activity)}</small>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-sm btn-outline" onclick="openAdminCourtModal(${JSON.stringify({id: b.id, ...b}).replace(/"/g, '&quot;')})">✏️</button>
+                    <button class="btn btn-sm btn-danger" onclick="adminDeleteBooking('${b.id}', '${b.date}', '${b.timeSlot}')">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        container.innerHTML = `<p style="color:var(--danger);">Error: ${error.message}</p>`;
+    }
 }
 
-async function adminRemoveBooking() {
-    const date = document.getElementById('admin-court-date')?.value;
-    const timeSlot = document.getElementById('admin-court-slot')?.value;
-    if (!date) { showToast('Select date.', 'warning'); return; }
-    if (!confirm(`Remove ${timeSlot}?`)) return;
+// Helper: Delete booking by ID (for the list view)
+async function adminDeleteBooking(bookingId, date, timeSlot) {
+    if (userRole !== 'admin') return;
+    if (!confirm(`Delete this booking?`)) return;
     
     try {
-        const snapshot = await db.collection('courtBookings').where('date', '==', date).where('timeSlot', '==', timeSlot).get();
-        if (snapshot.empty) { showToast('Not found.', 'warning'); return; }
-        await snapshot.docs[0].ref.delete();
-        showToast('Removed.', 'success'); closeModal('adminCourtModal'); renderCourt(date);
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
+        await db.collection('courtBookings').doc(bookingId).delete();
+        showToast('Deleted.', 'success');
+        loadAdminCourtList(date); // Refresh list
+        if (currentPage === 'court.html') renderCourt(date); // Refresh main view
+    } catch (error) {
+        showToast('Failed: ' + error.message, 'danger');
+    }
 }
 
 // Announcements
