@@ -88,52 +88,47 @@
     <div class="main">
         <!-- Topbar -->
         <div class="topbar">
-            <div class="topbar-left">
-                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-                <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; width: 250px;"></div>
+    <div class="topbar-left">
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
+    </div>
+    <div class="topbar-right">
+        <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+        
+        <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
+            <div class="user-avatar" id="user-avatar">NO</div>
+            <div class="user-info-brief">
+                <span class="user-name" id="user-name">Nashmir Akon Olivares</span>
+                <span class="user-role" id="user-role">Resident</span>
             </div>
-            <div class="topbar-right">
-                <button class="notification-btn" style="background:none;border:none;cursor:pointer;font-size:20px;">🔔<span class="notification-badge" style="width:8px;height:8px;background:red;border-radius:50%;position:absolute;top:5px;right:5px;"></span></button>
-                
-                <!-- Profile Trigger -->
-                <div id="profile-trigger" style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 10px; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" onclick="toggleProfileDropdown()">
-                    <div style="width: 36px; height: 36px; background: #1e3a8a; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">NO</div>
-                    <div style="text-align: right; line-height: 1.2;">
-                        <div style="font-size: 14px; font-weight: 600; color: #0f172a;">Nashmir Akon Olivares</div>
-                        <div style="font-size: 11px; color: #64748b;">Resident</div>
-                    </div>
-                    <span style="font-size: 10px; color: #94a3b8;">▼</span>
-                </div>
+            <span class="dropdown-arrow">▼</span>
+        </div>
 
-                <!-- Dropdown Menu (Hidden by default) -->
-                <div id="profile-dropdown" style="position: absolute; top: 55px; right: 0; width: 280px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #e2e8f0; display: none; z-index: 2000; overflow: hidden;">
-                    <div style="padding: 16px; background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 45px; height: 45px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">NO</div>
-                            <div>
-                                <div style="font-weight: 600;">Nashmir Akon Olivares</div>
-                                <div style="font-size: 12px; opacity: 0.9;">rimhsan.info@gmail.com</div>
-                                <div style="font-size: 10px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px; display: inline-block; margin-top: 4px;">Resident</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="padding: 8px;">
-                        <a href="account.html" style="display: flex; align-items: center; gap: 12px; padding: 12px; text-decoration: none; color: #333; border-radius: 8px; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
-                            <span style="font-size: 18px;">👤</span>
-                            <div>
-                                <div style="font-weight: 600; font-size: 14px;">My Account</div>
-                                <div style="font-size: 11px; color: #64748b;">Profile, Security & Complaints</div>
-                            </div>
-                        </a>
-                    </div>
-                    <div style="border-top: 1px solid #e2e8f0; padding: 8px;">
-                        <button onclick="handleLogout()" style="width: 100%; padding: 12px; border: none; background: none; cursor: pointer; display: flex; align-items: center; gap: 12px; color: #ef4444; font-weight: 600; border-radius: 8px; text-align: left;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
-                            <span style="font-size: 18px;">🚪</span> Sign Out
-                        </button>
-                    </div>
+        <!-- Fixed Position Dropdown -->
+        <div class="profile-dropdown" id="profileDropdown">
+            <div class="dropdown-header">
+                <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
+                <div class="dropdown-details">
+                    <div class="dropdown-name" id="dropdown-name">Nashmir Akon Olivares</div>
+                    <div class="dropdown-email" id="dropdown-email">rimhsan.info@gmail.com</div>
+                    <span class="dropdown-role-tag" id="dropdown-role-tag">Resident</span>
                 </div>
+            </div>
+            <div class="dropdown-body">
+                <a href="account.html" class="dropdown-link">
+                    <span class="link-icon">👤</span>
+                    <div class="link-text">
+                        <span class="link-title">My Account</span>
+                        <span class="link-desc">Profile, Security & Complaints</span>
+                    </div>
+                </a>
+            </div>
+            <div class="dropdown-footer">
+                <button class="logout-btn" onclick="handleLogout()">🚪 Sign Out</button>
             </div>
         </div>
+    </div>
+</div>
 
         <!-- Content -->
         <div class="content" style="padding: 24px;">
