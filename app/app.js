@@ -956,3 +956,5 @@ window.deleteAnnouncement = deleteAnnouncement;
 window.loadAnnouncements = loadAnnouncements;
 window.openEditComplaintModal = openEditComplaintModal;
 window.deleteComplaint = deleteComplaint;
+window.openEditBookingModal = openEditBookingModal;
+window.deleteCurrentBooking = deleteCurrentBooking;
