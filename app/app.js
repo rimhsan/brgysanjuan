@@ -247,7 +247,7 @@ function formatTime(timeStr) {
     return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
 }
 
-// ==================== COMPLAINTS (EDIT/DELETE) ====================
+// ==================== COMPLAINTS (EDIT/DELETE/STATUS) ====================
 async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     const container = document.getElementById(elementId);
     if (!container) return;
@@ -259,22 +259,37 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
 
         if (complaints.length === 0) { container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No complaints found.</p>'; return; }
 
-        container.innerHTML = complaints.map(c => `
-            <div class="complaint-item">
-                <div class="complaint-header">
-                    <span class="complaint-category ${categoryConfig[c.category]?.class||'cat-other'}">${categoryConfig[c.category]?.label||'📌 Other'}</span>
-                    <div style="display:flex; gap:8px;">
-                        ${userRole === 'admin' ? `
-                            <button class="btn btn-sm btn-outline" onclick="openEditComplaintModal('${c.id}')">✏️ Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteComplaint('${c.id}')">🗑️ Delete</button>
-                        ` : `<span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status||'Pending'}</span>`}
-                    </div>
+        container.innerHTML = complaints.map(c => {
+            // Admin Status Dropdown
+            const adminControls = userRole === 'admin' ? `
+                <select class="status-dropdown" onchange="updateComplaintStatus('${c.id}', this.value)">
+                    <option value="pending" ${c.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                    <option value="progress" ${c.status === 'progress' ? 'selected' : ''}>🔄 In Progress</option>
+                    <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>✅ Resolved</option>
+                </select>
+            ` : `<span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status === 'progress' ? 'In Progress' : (c.status === 'resolved' ? 'Resolved' : 'Pending')}</span>`;
+
+            // Admin Edit/Delete Buttons
+            const editDeleteButtons = userRole === 'admin' ? `
+                <div style="margin-top:12px; display:flex; gap:8px;">
+                    <button class="btn btn-sm btn-outline" onclick="openEditComplaintModal('${c.id}')">✏️ Edit</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteComplaint('${c.id}')">🗑️ Delete</button>
                 </div>
-                <div class="complaint-title">${escapeHtml(c.title)}</div>
-                <div class="complaint-desc">${escapeHtml(c.description)}</div>
-                <div class="complaint-meta"><span>👤 ${escapeHtml(c.userName)}</span><span>📍 ${escapeHtml(c.purok)}</span></div>
-            </div>
-        `).join('');
+            ` : '';
+
+            return `
+                <div class="complaint-item">
+                    <div class="complaint-header">
+                        <span class="complaint-category ${categoryConfig[c.category]?.class||'cat-other'}">${categoryConfig[c.category]?.label||'📌 Other'}</span>
+                        ${adminControls}
+                    </div>
+                    <div class="complaint-title">${escapeHtml(c.title)}</div>
+                    <div class="complaint-desc">${escapeHtml(c.description)}</div>
+                    <div class="complaint-meta"><span>👤 ${escapeHtml(c.userName)}</span><span>📍 ${escapeHtml(c.purok)}</span></div>
+                    ${editDeleteButtons}
+                </div>
+            `;
+        }).join('');
     } catch (e) { container.innerHTML = '<p>Error loading complaints.</p>'; }
 }
 
@@ -317,20 +332,37 @@ async function submitComplaint() {
     try {
         const data = { category, title, description: desc, purok };
         if (editId) {
-            // Update existing
             await db.collection('complaints').doc(editId).update({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
             showToast('Complaint updated!', 'success');
         } else {
-            // Create new
             await db.collection('complaints').add({ ...data, userId: currentUser.uid, userName: currentUser.email, status: 'pending', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
             showToast('Complaint filed!', 'success');
         }
         closeModal('complaintModal');
         renderComplaints();
-        // Clear form
         document.getElementById('complaint-edit-id').value = '';
         ['complaint-category', 'complaint-title', 'complaint-desc', 'complaint-purok'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
+}
+
+async function updateComplaintStatus(id, newStatus) {
+    if (userRole !== 'admin') return;
+    try {
+        await db.collection('complaints').doc(id).update({ 
+            status: newStatus,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        showToast(`Status updated to ${newStatus === 'progress' ? 'In Progress' : newStatus}`, 'success');
+        renderComplaints();
+    } catch (error) {
+        showToast('Failed to update status.', 'danger');
+    }
+}
+
+function filterComplaints(filter, btn) {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    renderComplaints(filter);
 }
 
 // ==================== RESIDENTS ====================
@@ -444,13 +476,11 @@ async function addSummons() {
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
-// ==================== CALENDAR & COURT FUNCTIONS ====================
-
+// ==================== COURT CALENDAR (EDIT/DELETE) ====================
 let currentMonth = new Date();
 let selectedDate = new Date();
 let allBookings = [];
 
-// Helper: Get YYYY-MM-DD string from any Date object (Local Time)
 function getLocalDateString(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -458,7 +488,6 @@ function getLocalDateString(dateObj) {
     return `${y}-${m}-${d}`;
 }
 
-// Initialize Calendar
 async function initCalendar(resetDate = false) {
     if (resetDate) {
         currentMonth = new Date();
@@ -480,12 +509,8 @@ async function fetchMonthBookings() {
     const month = currentMonth.getMonth();
     const startOfMonth = getLocalDateString(new Date(year, month, 1));
     const endOfMonth = getLocalDateString(new Date(year, month + 1, 0));
-    
     try {
-        const snapshot = await db.collection('courtBookings')
-            .where('date', '>=', startOfMonth)
-            .where('date', '<=', endOfMonth)
-            .get();
+        const snapshot = await db.collection('courtBookings').where('date', '>=', startOfMonth).where('date', '<=', endOfMonth).get();
         allBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
         console.warn("Fetch error", error);
@@ -496,39 +521,36 @@ async function fetchMonthBookings() {
 function renderCalendarGrid() {
     const grid = document.getElementById('calendar-grid');
     if(!grid) return;
-
     const headers = Array.from(grid.children).slice(0, 7);
     grid.innerHTML = '';
     headers.forEach(h => grid.appendChild(h));
-
+    
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-
     const todayStr = getLocalDateString(new Date());
     const selectedStr = getLocalDateString(selectedDate);
-
+    
     for (let i = 0; i < firstDayOfMonth; i++) {
         const emptyCell = document.createElement('div');
         grid.appendChild(emptyCell);
     }
-
+    
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayBookings = allBookings.filter(b => b.date === dateStr);
         const isToday = (dateStr === todayStr);
         const isSelected = (dateStr === selectedStr);
-
+        
         const cell = document.createElement('div');
         cell.className = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
         cell.setAttribute('data-count', dayBookings.length);
-        
         cell.onclick = () => {
             selectedDate = new Date(year, month, day);
             renderCalendarGrid(); 
         };
-
+        
         let bookingsHtml = '';
         if (dayBookings.length > 0) {
             dayBookings.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
@@ -536,7 +558,6 @@ function renderCalendarGrid() {
             dayBookings.forEach(b => {
                 const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
                 const isAdmin = b.isAdminBooking;
-                // Add click event for Admin to Edit
                 const clickAction = userRole === 'admin' ? `onclick="openEditBookingModal('${b.id}')"` : '';
                 bookingsHtml += `<div class="grid-booking ${isAdmin ? 'admin' : ''}" ${clickAction}>
                     <div class="grid-time">${time}</div>
@@ -545,7 +566,7 @@ function renderCalendarGrid() {
             });
             bookingsHtml += '</div>';
         }
-
+        
         cell.innerHTML = `<div class="day-top"><div class="day-number">${day}</div></div>${bookingsHtml}`;
         grid.appendChild(cell);
     }
@@ -556,56 +577,56 @@ function changeMonth(delta) {
     initCalendar(false);
 }
 
-// 1. OPEN NEW BOOKING MODAL
 function openBookingModal() {
-    // Clear Edit ID
     document.getElementById('court-booking-edit-id').value = '';
-    
-    // Set Default Date
     document.getElementById('court-date').value = getLocalDateString(selectedDate);
-    
-    // Reset Fields
     document.getElementById('court-booker').value = '';
     document.getElementById('court-start-time').value = '';
     document.getElementById('court-end-time').value = '';
     document.getElementById('court-activity').value = 'Basketball';
-    
-    // UI Updates
     document.getElementById('court-modal-title').textContent = '📅 Book Court Slot';
     document.getElementById('btn-delete-booking').style.display = 'none';
-    
     openModal('courtModal');
 }
 
-// 2. OPEN EDIT BOOKING MODAL (Admin Only)
 async function openEditBookingModal(id) {
     if (userRole !== 'admin') return;
-    
     try {
         const doc = await db.collection('courtBookings').doc(id).get();
         if (doc.exists) {
             const data = doc.data();
-            
-            // Fill Form
             document.getElementById('court-booking-edit-id').value = id;
             document.getElementById('court-booker').value = data.bookerName;
             document.getElementById('court-date').value = data.date;
             document.getElementById('court-start-time').value = data.startTime;
             document.getElementById('court-end-time').value = data.endTime;
             document.getElementById('court-activity').value = data.activity;
-            
-            // UI Updates
             document.getElementById('court-modal-title').textContent = '✏️ Edit Booking';
-            document.getElementById('btn-delete-booking').style.display = 'inline-flex'; // Show Delete Button
-            
+            document.getElementById('btn-delete-booking').style.display = 'inline-flex';
             openModal('courtModal');
         }
-    } catch (e) {
-        showToast('Error loading booking', 'danger');
-    }
+    } catch (e) { showToast('Error loading booking', 'danger'); }
 }
 
-// 3. CONFIRM BOOKING (Handles both Create and Update)
+async function deleteCurrentBooking() {
+    const editId = document.getElementById('court-booking-edit-id')?.value;
+    if (!editId) { showToast('No booking selected to delete.', 'warning'); return; }
+    if (!confirm('Are you sure you want to delete this booking?')) return;
+    try {
+        await db.collection('courtBookings').doc(editId).delete();
+        showToast('Booking deleted', 'success');
+        closeModal('courtModal');
+        await fetchMonthBookings();
+        renderCalendarGrid();
+    } catch (e) { showToast('Failed to delete', 'danger'); }
+}
+
+function toMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h * 60) + m;
+}
+
 async function bookCourt() {
     const name = document.getElementById('court-booker')?.value.trim();
     const date = document.getElementById('court-date')?.value;
@@ -622,7 +643,6 @@ async function bookCourt() {
     if (startH < 6 || endH > 19) { showToast('Court hours: 6 AM - 7 PM', 'warning'); return; }
 
     try {
-        // Check Overlaps ONLY if creating a NEW booking (not editing)
         if (!editId) {
             const hasOverlap = allBookings.some(b => {
                 if (b.date !== date) return false;
@@ -632,24 +652,14 @@ async function bookCourt() {
         }
 
         if (editId) {
-            // --- UPDATE EXISTING ---
             await db.collection('courtBookings').doc(editId).update({
-                bookerName: name, 
-                startTime: start, 
-                endTime: end, 
-                activity,
+                bookerName: name, startTime: start, endTime: end, activity,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             showToast('Booking updated!', 'success');
         } else {
-            // --- CREATE NEW ---
             await db.collection('courtBookings').add({
-                userId: currentUser.uid, 
-                bookerName: name, 
-                date, 
-                startTime: start, 
-                endTime: end, 
-                activity,
+                userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity,
                 isAdminBooking: userRole === 'admin',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -657,41 +667,27 @@ async function bookCourt() {
         }
 
         closeModal('courtModal');
-        await fetchMonthBookings(); // Refresh data
-        renderCalendarGrid();       // Refresh UI
-        
-    } catch (error) { 
-        showToast('Failed: ' + error.message, 'danger'); 
-    }
-}
-
-// 4. DELETE CURRENT BOOKING
-async function deleteCurrentBooking() {
-    const editId = document.getElementById('court-booking-edit-id')?.value;
-    
-    if (!editId) {
-        showToast('No booking selected to delete.', 'warning');
-        return;
-    }
-    
-    if (!confirm('Are you sure you want to delete this booking?')) return;
-    
-    try {
-        await db.collection('courtBookings').doc(editId).delete();
-        showToast('Booking deleted', 'success');
-        closeModal('courtModal');
         await fetchMonthBookings();
         renderCalendarGrid();
-    } catch (e) {
-        showToast('Failed to delete: ' + e.message, 'danger');
-    }
+        document.getElementById('court-booking-edit-id').value = '';
+        document.getElementById('court-booker').value = '';
+    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
 }
 
-// Helper for time
-function toMinutes(timeStr) {
-    if (!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    return (h * 60) + m;
+async function adminClearDay() {
+    if (userRole !== 'admin') return;
+    const date = getLocalDateString(selectedDate);
+    if (!confirm(`Delete ALL bookings for ${date}?`)) return;
+    try {
+        const snap = await db.collection('courtBookings').where('date', '==', date).get();
+        const batch = db.batch();
+        snap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        showToast('Day cleared', 'success');
+        await fetchMonthBookings();
+        renderCalendarGrid();
+        closeModal('adminCourtModal');
+    } catch (e) { showToast('Error', 'danger'); }
 }
 
 // ==================== ANNOUNCEMENTS (EDIT/DELETE) ====================
@@ -920,7 +916,7 @@ window.openBookingModal = openBookingModal;
 window.bookCourt = bookCourt;
 window.adminClearDay = adminClearDay;
 window.openEditBookingModal = openEditBookingModal;
-window.deleteBooking = deleteBooking;
+window.deleteCurrentBooking = deleteCurrentBooking;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.toggleSidebar = toggleSidebar;
@@ -932,19 +928,8 @@ window.changeAccountPassword = changeAccountPassword;
 window.saveNotifPrefs = saveNotifPrefs;
 window.loadAccountPage = loadAccountPage;
 window.submitComplaint = submitComplaint;
-window.filterComplaints = function(filter, btn) {
-    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-    if(btn) btn.classList.add('active');
-    renderComplaints(filter);
-};
-window.updateComplaintStatus = async function(id, status) {
-    if (userRole !== 'admin') return;
-    try {
-        await db.collection('complaints').doc(id).update({ status });
-        showToast(`Marked as ${status}`, 'success');
-        renderComplaints();
-    } catch (e) { showToast('Update failed.', 'danger'); }
-};
+window.filterComplaints = filterComplaints;
+window.updateComplaintStatus = updateComplaintStatus;
 window.renderResidents = renderResidents;
 window.addSummons = addSummons;
 window.openEditSummonsModal = openEditSummonsModal;
@@ -956,5 +941,3 @@ window.deleteAnnouncement = deleteAnnouncement;
 window.loadAnnouncements = loadAnnouncements;
 window.openEditComplaintModal = openEditComplaintModal;
 window.deleteComplaint = deleteComplaint;
-window.openEditBookingModal = openEditBookingModal;
-window.deleteCurrentBooking = deleteCurrentBooking;
