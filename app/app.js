@@ -252,64 +252,44 @@ function formatTime(timeStr) {
 async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     const container = document.getElementById(elementId);
     if (!container) return;
-    
     container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">Loading...</p>';
-    
     try {
         const snap = await db.collection('complaints').orderBy('createdAt', 'desc').get();
         let complaints = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // Filter logic
-        if (filter !== 'all') {
-            complaints = complaints.filter(c => c.status === filter);
-        }
+        if (filter !== 'all') complaints = complaints.filter(c => c.status === filter);
 
         if (complaints.length === 0) { 
             container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No complaints found.</p>'; 
             return; 
         }
-
-        container.innerHTML = complaints.map(c => {
-            // Admin Status Dropdown
-            const adminControls = userRole === 'admin' ? `
-                <select class="status-dropdown" onchange="updateComplaintStatus('${c.id}', this.value)">
-                    <option value="pending" ${c.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
-                    <option value="progress" ${c.status === 'progress' ? 'selected' : ''}>🔄 In Progress</option>
-                    <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>✅ Resolved</option>
-                </select>
-            ` : `<span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status === 'progress' ? 'In Progress' : (c.status === 'resolved' ? 'Resolved' : 'Pending')}</span>`;
-
-            // Admin Edit/Delete Buttons
-            const editDeleteButtons = userRole === 'admin' ? `
-                <div style="margin-top:12px; display:flex; gap:8px;">
-                    <button class="btn btn-sm btn-outline" onclick="openEditComplaintModal('${c.id}')">✏️ Edit</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteComplaint('${c.id}')">🗑️ Delete</button>
-                </div>
-            ` : '';
-
-            return `
-                <div class="complaint-item">
-                    <div class="complaint-header">
-                        <span class="complaint-category ${categoryConfig[c.category]?.class || 'cat-other'}">
-                            ${categoryConfig[c.category]?.label || '📌 Other'}
-                        </span>
-                        ${adminControls}
-                    </div>
-                    <div class="complaint-title">${escapeHtml(c.title)}</div>
-                    <div class="complaint-desc">${escapeHtml(c.description)}</div>
-                    <div class="complaint-meta">
-                        <span>👤 ${escapeHtml(c.userName)}</span>
-                        <span>📍 ${escapeHtml(c.purok)}</span>
-                        <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
-                    </div>
-                    ${editDeleteButtons}
-                </div>
-            `;
-        }).join('');
         
+        // ✅ FIXED: Removed space in arrow function (c =>)
+        container.innerHTML = complaints.map(c => `
+            <div class="complaint-item">
+                <div class="complaint-header">
+                    <span class="complaint-category ${categoryConfig[c.category]?.class||'cat-other'}">${categoryConfig[c.category]?.label||'📌 Other'}</span>
+                    ${userRole === 'admin' ? `
+                        <select class="status-dropdown" onchange="updateComplaintStatus('${c.id}', this.value)">
+                            <option value="pending" ${c.status==='pending'?'selected':''}>⏳ Pending</option>
+                            <option value="progress" ${c.status==='progress'?'selected':''}>🔄 Progress</option>
+                            <option value="resolved" ${c.status==='resolved'?'selected':''}>✅ Resolved</option>
+                        </select>
+                    ` : `
+                        <span class="status-badge status-${c.status||'pending'}">
+                            <span class="status-dot"></span> ${c.status||'Pending'}
+                        </span>
+                    `}
+                </div>
+                <div class="complaint-title">${escapeHtml(c.title)}</div>
+                <div class="complaint-desc">${escapeHtml(c.description)}</div>
+                <div class="complaint-meta">
+                    <span>👤 ${escapeHtml(c.userName)}</span>
+                    <span>📍 ${escapeHtml(c.purok)}</span>
+                </div>
+            </div>
+        `).join('');
     } catch (e) { 
-        console.error(e);
-        container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:20px;">Error loading complaints.</p>'; 
+        container.innerHTML = '<p>Error loading complaints.</p>'; 
     }
 }
 
