@@ -96,6 +96,8 @@
         <div class="modal">
             <div class="modal-header"><h3 id="announcement-modal-title">📢 Add Announcement</h3><button class="modal-close" onclick="closeModal('announcementModal')">✕</button></div>
             <div class="modal-body">
+                <input type="hidden" id="announcement-edit-id">
+                <h3 id="announcement-modal-title">📢 Add Announcement</h3>
                 <div class="form-group"><label>Title *</label><input type="text" id="announcement-title" placeholder="Announcement title"></div>
                 <div class="form-group"><label>Category</label><select id="announcement-category"><option value="general">📢 General</option><option value="infrastructure">🚧 Infrastructure</option><option value="utilities">💡 Utilities</option><option value="sanitation">🗑️ Sanitation</option><option value="events">🎉 Events</option></select></div>
                 <div class="form-group"><label>Content *</label><textarea id="announcement-content" placeholder="Announcement details..." rows="5"></textarea></div>
