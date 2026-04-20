@@ -444,11 +444,13 @@ async function addSummons() {
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
-// ==================== COURT CALENDAR (EDIT/DELETE) ====================
+// ==================== CALENDAR & COURT FUNCTIONS ====================
+
 let currentMonth = new Date();
 let selectedDate = new Date();
 let allBookings = [];
 
+// Helper: Get YYYY-MM-DD string from any Date object (Local Time)
 function getLocalDateString(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -456,6 +458,7 @@ function getLocalDateString(dateObj) {
     return `${y}-${m}-${d}`;
 }
 
+// Initialize Calendar
 async function initCalendar(resetDate = false) {
     if (resetDate) {
         currentMonth = new Date();
@@ -477,8 +480,12 @@ async function fetchMonthBookings() {
     const month = currentMonth.getMonth();
     const startOfMonth = getLocalDateString(new Date(year, month, 1));
     const endOfMonth = getLocalDateString(new Date(year, month + 1, 0));
+    
     try {
-        const snapshot = await db.collection('courtBookings').where('date', '>=', startOfMonth).where('date', '<=', endOfMonth).get();
+        const snapshot = await db.collection('courtBookings')
+            .where('date', '>=', startOfMonth)
+            .where('date', '<=', endOfMonth)
+            .get();
         allBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
         console.warn("Fetch error", error);
@@ -489,36 +496,39 @@ async function fetchMonthBookings() {
 function renderCalendarGrid() {
     const grid = document.getElementById('calendar-grid');
     if(!grid) return;
+
     const headers = Array.from(grid.children).slice(0, 7);
     grid.innerHTML = '';
     headers.forEach(h => grid.appendChild(h));
-    
+
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
+
     const todayStr = getLocalDateString(new Date());
     const selectedStr = getLocalDateString(selectedDate);
-    
+
     for (let i = 0; i < firstDayOfMonth; i++) {
         const emptyCell = document.createElement('div');
         grid.appendChild(emptyCell);
     }
-    
+
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayBookings = allBookings.filter(b => b.date === dateStr);
         const isToday = (dateStr === todayStr);
         const isSelected = (dateStr === selectedStr);
-        
+
         const cell = document.createElement('div');
         cell.className = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
         cell.setAttribute('data-count', dayBookings.length);
+        
         cell.onclick = () => {
             selectedDate = new Date(year, month, day);
             renderCalendarGrid(); 
         };
-        
+
         let bookingsHtml = '';
         if (dayBookings.length > 0) {
             dayBookings.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
@@ -526,7 +536,7 @@ function renderCalendarGrid() {
             dayBookings.forEach(b => {
                 const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
                 const isAdmin = b.isAdminBooking;
-                // Add click to edit for admin
+                // Add click event for Admin to Edit
                 const clickAction = userRole === 'admin' ? `onclick="openEditBookingModal('${b.id}')"` : '';
                 bookingsHtml += `<div class="grid-booking ${isAdmin ? 'admin' : ''}" ${clickAction}>
                     <div class="grid-time">${time}</div>
@@ -535,7 +545,7 @@ function renderCalendarGrid() {
             });
             bookingsHtml += '</div>';
         }
-        
+
         cell.innerHTML = `<div class="day-top"><div class="day-number">${day}</div></div>${bookingsHtml}`;
         grid.appendChild(cell);
     }
@@ -546,48 +556,56 @@ function changeMonth(delta) {
     initCalendar(false);
 }
 
+// 1. OPEN NEW BOOKING MODAL
 function openBookingModal() {
+    // Clear Edit ID
+    document.getElementById('court-booking-edit-id').value = '';
+    
+    // Set Default Date
     document.getElementById('court-date').value = getLocalDateString(selectedDate);
+    
+    // Reset Fields
+    document.getElementById('court-booker').value = '';
+    document.getElementById('court-start-time').value = '';
+    document.getElementById('court-end-time').value = '';
+    document.getElementById('court-activity').value = 'Basketball';
+    
+    // UI Updates
     document.getElementById('court-modal-title').textContent = '📅 Book Court Slot';
-    document.getElementById('court-booking-edit-id').value = ''; // Clear edit ID
+    document.getElementById('btn-delete-booking').style.display = 'none';
+    
     openModal('courtModal');
 }
 
+// 2. OPEN EDIT BOOKING MODAL (Admin Only)
 async function openEditBookingModal(id) {
     if (userRole !== 'admin') return;
+    
     try {
         const doc = await db.collection('courtBookings').doc(id).get();
         if (doc.exists) {
             const data = doc.data();
+            
+            // Fill Form
             document.getElementById('court-booking-edit-id').value = id;
             document.getElementById('court-booker').value = data.bookerName;
             document.getElementById('court-date').value = data.date;
             document.getElementById('court-start-time').value = data.startTime;
             document.getElementById('court-end-time').value = data.endTime;
             document.getElementById('court-activity').value = data.activity;
+            
+            // UI Updates
             document.getElementById('court-modal-title').textContent = '✏️ Edit Booking';
+            document.getElementById('btn-delete-booking').style.display = 'inline-flex'; // Show Delete Button
+            
             openModal('courtModal');
         }
-    } catch (e) { showToast('Error loading booking', 'danger'); }
+    } catch (e) {
+        showToast('Error loading booking', 'danger');
+    }
 }
 
-async function deleteBooking(id) {
-    if (userRole !== 'admin') return;
-    if (!confirm('Delete this booking?')) return;
-    try {
-        await db.collection('courtBookings').doc(id).delete();
-        showToast('Booking deleted', 'success');
-        await fetchMonthBookings();
-        renderCalendarGrid();
-    } catch (e) { showToast('Failed to delete', 'danger'); }
-}
-
-function toMinutes(timeStr) {
-    if (!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    return (h * 60) + m;
-}
-
+// 3. CONFIRM BOOKING (Handles both Create and Update)
 async function bookCourt() {
     const name = document.getElementById('court-booker')?.value.trim();
     const date = document.getElementById('court-date')?.value;
@@ -604,7 +622,7 @@ async function bookCourt() {
     if (startH < 6 || endH > 19) { showToast('Court hours: 6 AM - 7 PM', 'warning'); return; }
 
     try {
-        // Check overlaps only if creating new (not editing)
+        // Check Overlaps ONLY if creating a NEW booking (not editing)
         if (!editId) {
             const hasOverlap = allBookings.some(b => {
                 if (b.date !== date) return false;
@@ -614,43 +632,66 @@ async function bookCourt() {
         }
 
         if (editId) {
-            // Update existing
+            // --- UPDATE EXISTING ---
             await db.collection('courtBookings').doc(editId).update({
-                bookerName: name, startTime: start, endTime: end, activity,
+                bookerName: name, 
+                startTime: start, 
+                endTime: end, 
+                activity,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             showToast('Booking updated!', 'success');
         } else {
-            // Create new
+            // --- CREATE NEW ---
             await db.collection('courtBookings').add({
-                userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity,
-                isAdminBooking: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                userId: currentUser.uid, 
+                bookerName: name, 
+                date, 
+                startTime: start, 
+                endTime: end, 
+                activity,
+                isAdminBooking: userRole === 'admin',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             showToast('Booking confirmed!', 'success');
         }
 
         closeModal('courtModal');
-        await fetchMonthBookings();
-        renderCalendarGrid();
-        document.getElementById('court-booking-edit-id').value = '';
-        document.getElementById('court-booker').value = '';
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
+        await fetchMonthBookings(); // Refresh data
+        renderCalendarGrid();       // Refresh UI
+        
+    } catch (error) { 
+        showToast('Failed: ' + error.message, 'danger'); 
+    }
 }
 
-async function adminClearDay() {
-    if (userRole !== 'admin') return;
-    const date = getLocalDateString(selectedDate);
-    if (!confirm(`Delete ALL bookings for ${date}?`)) return;
+// 4. DELETE CURRENT BOOKING
+async function deleteCurrentBooking() {
+    const editId = document.getElementById('court-booking-edit-id')?.value;
+    
+    if (!editId) {
+        showToast('No booking selected to delete.', 'warning');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to delete this booking?')) return;
+    
     try {
-        const snap = await db.collection('courtBookings').where('date', '==', date).get();
-        const batch = db.batch();
-        snap.docs.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-        showToast('Day cleared', 'success');
+        await db.collection('courtBookings').doc(editId).delete();
+        showToast('Booking deleted', 'success');
+        closeModal('courtModal');
         await fetchMonthBookings();
         renderCalendarGrid();
-        closeModal('adminCourtModal');
-    } catch (e) { showToast('Error', 'danger'); }
+    } catch (e) {
+        showToast('Failed to delete: ' + e.message, 'danger');
+    }
+}
+
+// Helper for time
+function toMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h * 60) + m;
 }
 
 // ==================== ANNOUNCEMENTS (EDIT/DELETE) ====================
