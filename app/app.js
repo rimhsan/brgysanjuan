@@ -252,31 +252,37 @@ function formatTime(timeStr) {
 async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     const container = document.getElementById(elementId);
     if (!container) return;
-    container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">Loading...</p>';
+    container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">⏳ Loading...</p>';
+    
     try {
         const snap = await db.collection('complaints').orderBy('createdAt', 'desc').get();
         let complaints = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
         if (filter !== 'all') complaints = complaints.filter(c => c.status === filter);
-
+        
         if (complaints.length === 0) { 
             container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No complaints found.</p>'; 
             return; 
         }
         
-        // ✅ FIXED: Removed space in arrow function (c =>)
         container.innerHTML = complaints.map(c => `
             <div class="complaint-item">
                 <div class="complaint-header">
-                    <span class="complaint-category ${categoryConfig[c.category]?.class||'cat-other'}">${categoryConfig[c.category]?.label||'📌 Other'}</span>
+                    <span class="complaint-category ${categoryConfig[c.category]?.class || 'cat-other'}">
+                        ${categoryConfig[c.category]?.label || '📌 Other'}
+                    </span>
                     ${userRole === 'admin' ? `
-                        <select class="status-dropdown" onchange="updateComplaintStatus('${c.id}', this.value)">
-                            <option value="pending" ${c.status==='pending'?'selected':''}>⏳ Pending</option>
-                            <option value="progress" ${c.status==='progress'?'selected':''}>🔄 Progress</option>
-                            <option value="resolved" ${c.status==='resolved'?'selected':''}>✅ Resolved</option>
-                        </select>
+                        <div class="status-controls" data-id="${c.id}" style="display:flex; gap:8px; align-items:center;">
+                            <select class="status-dropdown" id="status-select-${c.id}">
+                                <option value="pending" ${c.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                                <option value="progress" ${c.status === 'progress' ? 'selected' : ''}>🔄 In Progress</option>
+                                <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>✅ Resolved</option>
+                            </select>
+                            <button class="btn btn-sm btn-primary" onclick="saveComplaintStatus('${c.id}')">💾 Save</button>
+                        </div>
                     ` : `
-                        <span class="status-badge status-${c.status||'pending'}">
-                            <span class="status-dot"></span> ${c.status||'Pending'}
+                        <span class="status-badge status-${c.status || 'pending'}">
+                            <span class="status-dot"></span> ${c.status === 'progress' ? 'In Progress' : (c.status === 'resolved' ? 'Resolved' : 'Pending')}
                         </span>
                     `}
                 </div>
@@ -285,85 +291,54 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
                 <div class="complaint-meta">
                     <span>👤 ${escapeHtml(c.userName)}</span>
                     <span>📍 ${escapeHtml(c.purok)}</span>
+                    <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
                 </div>
             </div>
         `).join('');
     } catch (e) { 
-        container.innerHTML = '<p>Error loading complaints.</p>'; 
+        console.error(e);
+        container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:20px;">Error loading complaints.</p>'; 
     }
 }
 
-async function openEditComplaintModal(id) {
-    if (userRole !== 'admin') return;
-    try {
-        const doc = await db.collection('complaints').doc(id).get();
-        if (doc.exists) {
-            const data = doc.data();
-            document.getElementById('complaint-edit-id').value = id;
-            document.getElementById('complaint-category').value = data.category;
-            document.getElementById('complaint-title').value = data.title;
-            document.getElementById('complaint-desc').value = data.description;
-            document.getElementById('complaint-purok').value = data.purok;
-            document.getElementById('complaint-modal-title').textContent = '✏️ Edit Complaint';
-            openModal('complaintModal');
-        }
-    } catch (e) { showToast('Error loading complaint', 'danger'); }
-}
-
-async function deleteComplaint(id) {
-    if (userRole !== 'admin') return;
-    if (!confirm('Are you sure you want to delete this complaint?')) return;
+async function saveComplaintStatus(id) {
+    if (userRole !== 'admin') {
+        showToast('Admin access required.', 'warning');
+        return;
+    }
+    
+    const select = document.getElementById(`status-select-${id}`);
+    const btn = document.querySelector(`.status-controls[data-id="${id}"] .btn`);
+    const newStatus = select.value;
+    
+    if (!newStatus) {
+        showToast('Please select a status.', 'warning');
+        return;
+    }
+    
+    // Loading state
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Saving...';
+    btn.disabled = true;
     
     try {
-        await db.collection('complaints').doc(id).delete();
-        showToast('Complaint deleted', 'success');
-        renderComplaints();
-    } catch (error) {
-        showToast('Failed to delete: ' + error.message, 'danger');
-    }
-}
-
-async function submitComplaint() {
-    const category = document.getElementById('complaint-category')?.value;
-    const title = document.getElementById('complaint-title')?.value.trim();
-    const desc = document.getElementById('complaint-desc')?.value.trim();
-    const purok = document.getElementById('complaint-purok')?.value;
-    const editId = document.getElementById('complaint-edit-id')?.value;
-
-    if (!category || !title || !desc || !purok) { showToast('Fill all fields.', 'warning'); return; }
-
-    try {
-        const data = { category, title, description: desc, purok };
-        
-        if (editId) {
-            // Update existing
-            await db.collection('complaints').doc(editId).update({ 
-                ...data, 
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
-            });
-            showToast('Complaint updated!', 'success');
-        } else {
-            // Create new
-            await db.collection('complaints').add({ 
-                ...data, 
-                userId: currentUser.uid, 
-                userName: currentUser.email, 
-                status: 'pending', 
-                createdAt: firebase.firestore.FieldValue.serverTimestamp() 
-            });
-            showToast('Complaint filed!', 'success');
-        }
-        
-        closeModal('complaintModal');
-        renderComplaints();
-        
-        // Clear form
-        document.getElementById('complaint-edit-id').value = '';
-        ['complaint-category', 'complaint-title', 'complaint-desc', 'complaint-purok'].forEach(id => { 
-            const el = document.getElementById(id); if(el) el.value = ''; 
+        await db.collection('complaints').doc(id).update({
+            status: newStatus,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
-    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
+        const statusLabel = newStatus === 'progress' ? 'In Progress' : newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+        showToast(`Status updated to ${statusLabel}`, 'success');
+        
+        // Refresh the list to show updated badges for everyone
+        renderComplaints();
+    } catch (error) {
+        console.error("Update Error:", error);
+        showToast('Failed: ' + error.message, 'danger');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
 
 // ==================== RESIDENTS ====================
@@ -945,3 +920,4 @@ window.deleteComplaint = deleteComplaint;
 window.openEditComplaintModal = openEditComplaintModal;
 window.deleteComplaint = deleteComplaint;
 window.submitComplaint = submitComplaint;
+window.saveComplaintStatus = saveComplaintStatus;
