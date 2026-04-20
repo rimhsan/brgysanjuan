@@ -4,62 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Court Schedule - Barangay San Juan</title>
-    <link rel="stylesheet" href="./styles.css">
-    
-    <!-- Page Specific Styles to Force Layout -->
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <style>
-        /* Ensure Sidebar and Main Layout */
-        body { display: flex; margin: 0; background-color: #f8fafc; }
-        .main { flex: 1; margin-left: 260px; /* Width of sidebar */ transition: margin 0.3s; }
-        
-        /* Fix Topbar Position */
-        .topbar {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 12px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        }
-        .topbar-left { display: flex; align-items: center; gap: 16px; }
-        .topbar-right { position: relative; display: flex; align-items: center; gap: 12px; }
-        
-        /* Calendar Styles */
-        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 16px 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 16px 20px; border-radius: 12px; border: 1.5px solid var(--border); }
         .calendar-nav { display: flex; align-items: center; gap: 12px; }
-        .calendar-nav button { background: #f1f5f9; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px; color: #0f172a; transition: 0.2s; }
+        .calendar-nav button { background: var(--bg); border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px; color: var(--primary); transition: 0.2s; }
         .calendar-nav button:hover { background: #e2e8f0; }
-        .current-month { font-size: 20px; font-weight: 700; color: #0f172a; }
-        
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; }
-        .day-header { text-align: center; font-weight: 600; color: #64748b; font-size: 12px; padding: 8px 0; text-transform: uppercase; }
-        .calendar-day { min-height: 100px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; transition: 0.2s; cursor: pointer; }
-        .calendar-day:hover { border-color: #3b82f6; background: #f8fafc; }
-        .calendar-day.selected { border-color: #3b82f6; background: #eff6ff; }
-        .calendar-day.today {border-color: #1d52e3; background-color: #b2c7ff;}
-        .day-number { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
-        
-        .grid-bookings { flex: 1; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 80px; }
-        .grid-booking { font-size: 10px; background: #f1f5f9; padding: 2px 4px; border-radius: 4px; border-left: 2px solid #3b82f6; line-height: 1.2; }
-        .grid-booking.admin { background: #fff7ed; border-left-color: #f59e0b; }
-        .grid-time { font-weight: 700; color: #0f172a; display: block; }
-        .grid-name { color: #64748b; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
-        .bottom-actions { background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: right; margin-top: 20px; }
-
-        /* Mobile */
-        @media (max-width: 768px) {
-            .main { margin-left: 0; }
-            .sidebar { transform: translateX(-100%); position: fixed; z-index: 200; height: 100%; width: 260px; }
-            .sidebar.open { transform: translateX(0); }
-            .calendar-grid { gap: 4px; }
-            .calendar-day { min-height: 70px; }
-            .grid-bookings { display: none; }
-        }
+        .current-month { font-size: 20px; font-weight: 700; color: var(--text); }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; background: white; padding: 12px; border-radius: 12px; border: 1.5px solid var(--border); }
+        .day-header { text-align: center; font-weight: 600; color: var(--text-light); font-size: 12px; padding: 8px 0; text-transform: uppercase; }
+        .calendar-day { min-height: 100px; background: white; border: 1.5px solid var(--border); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; transition: 0.2s; cursor: pointer; }
+        .calendar-day:hover { border-color: var(--primary-light); background: #f8fafc; }
+        .calendar-day.selected { border-color: var(--primary); background: #f0f9ff; }
+        .calendar-day.today { border: 2px solid #f59e0b; background-color: #fffbeb; }
+        .day-number { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .grid-bookings { flex: 1; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 120px; }
+        .grid-booking { font-size: 10px; background: #f1f5f9; padding: 3px 5px; border-radius: 4px; border-left: 2px solid var(--primary); line-height: 1.2; }
+        .grid-booking.admin { background: #fff7ed; border-left-color: var(--accent); }
+        .grid-time { font-weight: 700; color: var(--text); display: block; }
+        .grid-name { color: var(--text-light); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bottom-actions { background: white; padding: 20px; border-radius: 12px; border: 1.5px solid var(--border); text-align: right; margin-top: 20px; }
+        @media (max-width: 768px) { .calendar-grid { gap: 4px; } .calendar-day { min-height: 85px; padding: 4px; } .day-number { font-size: 13px; } .grid-bookings { display: none; } }
     </style>
 </head>
 <body>
@@ -88,52 +54,51 @@
     <div class="main">
         <!-- Topbar -->
         <div class="topbar">
-    <div class="topbar-left">
-        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-        <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
-    </div>
-    <div class="topbar-right">
-        <button class="notification-btn">🔔<span class="notification-badge"></span></button>
-        
-        <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
-            <div class="user-avatar" id="user-avatar">NO</div>
-            <div class="user-info-brief">
-                <span class="user-name" id="user-name">Nashmir Akon Olivares</span>
-                <span class="user-role" id="user-role">Resident</span>
+            <div class="topbar-left">
+                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
             </div>
-            <span class="dropdown-arrow">▼</span>
-        </div>
+            <div class="topbar-right">
+                <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+                
+                <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
+                    <div class="user-avatar" id="user-avatar">NO</div>
+                    <div class="user-info-brief">
+                        <span class="user-name" id="user-name">Loading...</span>
+                        <span class="user-role" id="user-role">Resident</span>
+                    </div>
+                    <span class="dropdown-arrow">▼</span>
+                </div>
 
-        <!-- Fixed Position Dropdown -->
-        <div class="profile-dropdown" id="profileDropdown">
-            <div class="dropdown-header">
-                <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
-                <div class="dropdown-details">
-                    <div class="dropdown-name" id="dropdown-name">Nashmir Akon Olivares</div>
-                    <div class="dropdown-email" id="dropdown-email">rimhsan.info@gmail.com</div>
-                    <span class="dropdown-role-tag" id="dropdown-role-tag">Resident</span>
+                <div class="profile-dropdown" id="profileDropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
+                        <div class="dropdown-details">
+                            <div class="dropdown-name" id="dropdown-name">User Name</div>
+                            <div class="dropdown-email" id="dropdown-email">email</div>
+                            <span class="dropdown-role-tag" id="dropdown-role-tag">Resident</span>
+                        </div>
+                    </div>
+                    <div class="dropdown-body">
+                        <a href="account.html" class="dropdown-link">
+                            <span class="link-icon">👤</span>
+                            <div class="link-text">
+                                <span class="link-title">My Account</span>
+                                <span class="link-desc">Profile, Security & Complaints</span>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="dropdown-footer">
+                        <button class="logout-btn" onclick="handleLogout()">🚪 Sign Out</button>
+                    </div>
                 </div>
             </div>
-            <div class="dropdown-body">
-                <a href="account.html" class="dropdown-link">
-                    <span class="link-icon">👤</span>
-                    <div class="link-text">
-                        <span class="link-title">My Account</span>
-                        <span class="link-desc">Profile, Security & Complaints</span>
-                    </div>
-                </a>
-            </div>
-            <div class="dropdown-footer">
-                <button class="logout-btn" onclick="handleLogout()">🚪 Sign Out</button>
-            </div>
         </div>
-    </div>
-</div>
 
         <!-- Content -->
-        <div class="content" style="padding: 24px;">
-            <h1 class="page-title" style="margin-bottom: 8px; font-size: 24px; font-weight: 700;">Court Schedule</h1>
-            <p class="page-subtitle" style="margin-bottom: 24px; color: #64748b;">View monthly calendar and book slots.</p>
+        <div class="content">
+            <h1 class="page-title">Court Schedule</h1>
+            <p class="page-subtitle">View monthly calendar and book slots.</p>
             
             <div class="calendar-header">
                 <div class="current-month" id="current-month">Loading</div>
@@ -148,67 +113,36 @@
             </div>
             
             <div class="bottom-actions">
-                <button class="btn btn-accent" onclick="openBookingModal()" style="background: #f59e0b; color: white; padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">📅 Book a Slot</button>
+                <button class="btn btn-accent" onclick="openBookingModal()">📅 Book a Slot</button>
             </div>
         </div>
     </div>
 
-    <!-- Modals -->
-    <div class="modal-overlay" id="courtModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:3000; align-items:center; justify-content:center;">
-        <div class="modal" style="background:white; border-radius:12px; width:500px; max-width:90%;">
-            <div style="padding:20px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0;">📅 Book Court Slot</h3>
-                <button onclick="closeModal('courtModal')" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
-            </div>
-            <div style="padding:24px;">
-                <div style="margin-bottom:16px;"><label style="display:block; margin-bottom:6px; font-weight:600; font-size:14px;">Your Name / Team *</label><input type="text" id="court-booker" placeholder="e.g., Purok 3 Team" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;"></div>
-                <div style="margin-bottom:16px;"><label style="display:block; margin-bottom:6px; font-weight:600; font-size:14px;">Date</label><input type="date" id="court-date" readonly style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; background:#f8fafc;"></div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
-                    <div><label style="display:block; margin-bottom:6px; font-weight:600; font-size:14px;">Start Time *</label><input type="time" id="court-start-time" min="06:00" max="19:00" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;"></div>
-                    <div><label style="display:block; margin-bottom:6px; font-weight:600; font-size:14px;">End Time *</label><input type="time" id="court-end-time" min="06:00" max="19:00" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;"></div>
+    <!-- Booking Modal -->
+    <div class="modal-overlay" id="courtModal">
+        <div class="modal">
+            <div class="modal-header"><h3>📅 Book Court Slot</h3><button class="modal-close" onclick="closeModal('courtModal')">✕</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label>Your Name / Team *</label><input type="text" id="court-booker" placeholder="e.g., Purok 3 Team"></div>
+                <div class="form-group"><label>Date</label><input type="date" id="court-date" readonly></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Start Time *</label><input type="time" id="court-start-time" min="06:00" max="19:00"></div>
+                    <div class="form-group"><label>End Time *</label><input type="time" id="court-end-time" min="06:00" max="19:00"></div>
                 </div>
-                <p style="font-size:12px; color:#64748b; margin-top:-10px; margin-bottom:16px;">Court hours: 6:00 AM - 7:00 PM</p>
-                <div style="margin-bottom:16px;"><label style="display:block; margin-bottom:6px; font-weight:600; font-size:14px;">Activity</label><select id="court-activity" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;"><option value="Basketball">Basketball</option><option value="Volleyball">Volleyball</option><option value="Barangay Event">Barangay Event</option><option value="Practice">Practice</option><option value="Other">Other</option></select></div>
+                <p style="font-size:12px;color:var(--text-light);margin-top:-10px;margin-bottom:15px;">Court hours: 6:00 AM - 7:00 PM</p>
+                <div class="form-group"><label>Activity</label><select id="court-activity"><option value="Basketball">Basketball</option><option value="Volleyball">Volleyball</option><option value="Barangay Event">Barangay Event</option><option value="Practice">Practice</option><option value="Other">Other</option></select></div>
             </div>
-            <div style="padding:16px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px;">
-                <button onclick="closeModal('courtModal')" style="padding:10px 20px; border:1px solid #ddd; background:white; border-radius:6px; cursor:pointer;">Cancel</button>
-                <button onclick="bookCourt()" style="padding:10px 20px; border:none; background:#f59e0b; color:white; border-radius:6px; font-weight:600; cursor:pointer;">Confirm Booking</button>
-            </div>
+            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('courtModal')">Cancel</button><button class="btn btn-accent" onclick="bookCourt()">Confirm Booking</button></div>
         </div>
     </div>
 
-    <script>
-        // Toggle Dropdown Script
-        function toggleProfileDropdown() {
-            const dropdown = document.getElementById('profile-dropdown');
-            if (dropdown.style.display === 'block') {
-                dropdown.style.display = 'none';
-            } else {
-                dropdown.style.display = 'block';
-            }
-        }
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('profile-dropdown');
-            const trigger = document.getElementById('profile-trigger');
-            if (dropdown && trigger && !trigger.contains(event.target) && !dropdown.contains(event.target)) {
-                dropdown.style.display = 'none';
-            }
-        });
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
 
-        // Modal Helpers
-        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-        function openBookingModal() {
-            document.getElementById('court-date').value = new Date().toISOString().split('T')[0];
-            openModal('courtModal');
-        }
-    </script>
-
+    <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="./app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
