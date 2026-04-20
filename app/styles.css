@@ -316,3 +316,7 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
     .content { padding: 16px 12px !important; }
     .topbar { padding: 10px 12px !important; }
 }
+
+.status-controls { display: flex; align-items: center; gap: 8px; }
+.status-controls .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.status-dropdown { padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; background: white; min-width: 130px; }
