@@ -4,41 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Account - Barangay San Juan</title>
-    <link rel="stylesheet" href="./styles.css">
-    <style>
-        /* Account Page Specific */
-        .account-layout { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
-        .account-nav { background: white; border-radius: 14px; border: 1.5px solid var(--border); padding: 16px; height: fit-content; position: sticky; top: 90px; }
-        .account-nav button { width: 100%; text-align: left; padding: 12px 16px; border: none; background: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-light); transition: 0.2s; display: flex; align-items: center; gap: 10px; }
-        .account-nav button:hover { background: var(--bg); color: var(--text); }
-        .account-nav button.active { background: var(--primary); color: white; }
-        
-        .account-content { background: white; border-radius: 14px; border: 1.5px solid var(--border); padding: 32px; }
-        .account-section { display: none; }
-        .account-section.active { display: block; animation: fadeIn 0.3s ease; }
-        .section-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1.5px solid var(--border); }
-        .section-header h2 { font-size: 22px; margin-bottom: 4px; }
-        .section-header p { color: var(--text-light); }
-        
-        .complaints-grid { display: grid; gap: 12px; }
-        .complaint-card { padding: 16px; background: var(--bg); border-radius: 10px; border-left: 4px solid var(--primary); transition: 0.2s; }
-        .complaint-card:hover { transform: translateX(4px); }
-        .complaint-card.progress { border-left-color: var(--accent); }
-        .complaint-card.resolved { border-left-color: var(--success); }
-        .complaint-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .complaint-header h4 { font-size: 16px; margin: 0; }
-        .complaint-desc { font-size: 14px; color: var(--text-light); margin-bottom: 12px; line-height: 1.5; }
-        .complaint-meta { font-size: 12px; color: var(--text-light); display: flex; gap: 16px; }
-        
-        @media (max-width: 900px) {
-            .account-layout { grid-template-columns: 1fr; }
-            .account-nav { position: static; display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
-            .account-nav button { white-space: nowrap; width: auto; }
-            .account-content { padding: 20px; }
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
+    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="logo">🏛️</div>
@@ -59,50 +29,49 @@
         </nav>
     </aside>
 
+    <!-- Main Content -->
     <div class="main">
+        <!-- Topbar -->
         <div class="topbar">
-    <div class="topbar-left">
-        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-        <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
-    </div>
-    <div class="topbar-right">
-        <button class="notification-btn">🔔<span class="notification-badge"></span></button>
-        
-        <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
-            <div class="user-avatar" id="user-avatar">NO</div>
-            <div class="user-info-brief">
-                <span class="user-name" id="user-name">Nashmir Akon Olivares</span>
-                <span class="user-role" id="user-role">Resident</span>
+            <div class="topbar-left">
+                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
             </div>
-            <span class="dropdown-arrow">▼</span>
-        </div>
+            <div class="topbar-right">
+                <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
+                    <div class="user-avatar" id="user-avatar">NO</div>
+                    <div class="user-info-brief">
+                        <span class="user-name" id="user-name">Loading...</span>
+                        <span class="user-role" id="user-role">Resident</span>
+                    </div>
+                    <span class="dropdown-arrow">▼</span>
+                </div>
 
-        <!-- Fixed Position Dropdown -->
-        <div class="profile-dropdown" id="profileDropdown">
-            <div class="dropdown-header">
-                <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
-                <div class="dropdown-details">
-                    <div class="dropdown-name" id="dropdown-name">Nashmir Akon Olivares</div>
-                    <div class="dropdown-email" id="dropdown-email">rimhsan.info@gmail.com</div>
-                    <span class="dropdown-role-tag" id="dropdown-role-tag">Resident</span>
+                <div class="profile-dropdown" id="profileDropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
+                        <div class="dropdown-details">
+                            <div class="dropdown-name" id="dropdown-name">User Name</div>
+                            <div class="dropdown-email" id="dropdown-email">email</div>
+                            <span class="dropdown-role-tag" id="dropdown-role-tag">Resident</span>
+                        </div>
+                    </div>
+                    <div class="dropdown-body">
+                        <a href="account.html" class="dropdown-link">
+                            <span class="link-icon">👤</span>
+                            <div class="link-text">
+                                <span class="link-title">My Account</span>
+                                <span class="link-desc">Profile, Security & Complaints</span>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="dropdown-footer">
+                        <button class="logout-btn" onclick="handleLogout()">🚪 Sign Out</button>
+                    </div>
                 </div>
             </div>
-            <div class="dropdown-body">
-                <a href="account.html" class="dropdown-link">
-                    <span class="link-icon">👤</span>
-                    <div class="link-text">
-                        <span class="link-title">My Account</span>
-                        <span class="link-desc">Profile, Security & Complaints</span>
-                    </div>
-                </a>
-            </div>
-            <div class="dropdown-footer">
-                <button class="logout-btn" onclick="handleLogout()">🚪 Sign Out</button>
-            </div>
         </div>
-    </div>
-</div>
 
+        <!-- Content -->
         <div class="content">
             <div class="account-layout">
                 <!-- Side Navigation -->
@@ -116,14 +85,23 @@
                 <div class="account-content">
                     <!-- Profile Section -->
                     <div id="tab-profile" class="account-section active">
-                        <div class="section-header"><h2>Profile Information</h2><p>Update your personal details and purok assignment.</p></div>
+                        <div class="section-header">
+                            <h2>Profile Information</h2>
+                            <p>Update your personal details and purok assignment.</p>
+                        </div>
                         <div class="form-row">
                             <div class="form-group"><label>First Name</label><input type="text" id="acc-first-name"></div>
                             <div class="form-group"><label>Last Name</label><input type="text" id="acc-last-name"></div>
                         </div>
                         <div class="form-group"><label>Email Address</label><input type="email" id="acc-email" readonly style="background:#f8f9fa; cursor:not-allowed;"></div>
                         <div class="form-group"><label>Purok</label>
-                            <select id="acc-purok"><option value="Purok 1">Purok 1</option><option value="Purok 2">Purok 2</option><option value="Purok 3">Purok 3</option><option value="Purok 4">Purok 4</option><option value="Purok 5">Purok 5</option></select>
+                            <select id="acc-purok">
+                                <option value="Purok 1">Purok 1</option>
+                                <option value="Purok 2">Purok 2</option>
+                                <option value="Purok 3">Purok 3</option>
+                                <option value="Purok 4">Purok 4</option>
+                                <option value="Purok 5">Purok 5</option>
+                            </select>
                         </div>
                         <div class="form-group"><label>Contact Number</label><input type="tel" id="acc-phone" placeholder="09XX XXX XXXX"></div>
                         <button class="btn btn-primary" onclick="saveAccountProfile()">💾 Save Changes</button>
@@ -131,7 +109,10 @@
 
                     <!-- Security Section -->
                     <div id="tab-security" class="account-section">
-                        <div class="section-header"><h2>Security & Notifications</h2><p>Manage your password and alert preferences.</p></div>
+                        <div class="section-header">
+                            <h2>Security & Notifications</h2>
+                            <p>Manage your password and alert preferences.</p>
+                        </div>
                         <div class="form-group"><label>Current Password</label><input type="password" id="acc-current-pass" placeholder="Required to change password"></div>
                         <div class="form-row">
                             <div class="form-group"><label>New Password</label><input type="password" id="acc-new-pass" placeholder="Min 6 characters"></div>
@@ -151,7 +132,10 @@
 
                     <!-- Complaints Section -->
                     <div id="tab-complaints" class="account-section">
-                        <div class="section-header"><h2>My Complaints</h2><p>Track the status of concerns you've submitted.</p></div>
+                        <div class="section-header">
+                            <h2>My Complaints</h2>
+                            <p>Track the status of concerns you've submitted.</p>
+                        </div>
                         <div class="complaints-grid" id="my-complaints-list">
                             <p style="text-align:center; color:var(--text-light); padding:40px;">⏳ Loading your complaints...</p>
                         </div>
@@ -161,10 +145,13 @@
         </div>
     </div>
 
+    <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="./app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
