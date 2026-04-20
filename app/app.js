@@ -23,18 +23,14 @@ const db = firebase.firestore();
 let currentUser = null;
 let userRole = 'resident';
 let mapInstance = null;
+let currentMonth = new Date();
+let selectedDate = new Date();
+let allBookings = [];
 
 // Detect Current Page
 const currentPage = window.location.pathname.split('/').pop() || 'index.html';
 
 // Constants
-const TIME_SLOTS = [
-    '6:00 AM - 7:00 AM', '7:00 AM - 8:00 AM', '8:00 AM - 9:00 AM',
-    '9:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM',
-    '1:00 PM - 2:00 PM', '2:00 PM - 3:00 PM', '3:00 PM - 4:00 PM',
-    '4:00 PM - 5:00 PM', '5:00 PM - 6:00 PM', '6:00 PM - 7:00 PM'
-];
-
 const categoryConfig = {
     roadwork: { label: '🚧 Roadwork', class: 'cat-roadwork' },
     lightpost: { label: '💡 Lightpost', class: 'cat-lightpost' },
@@ -157,7 +153,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ==================== DROPDOWN ====================
+// ==================== PROFILE DROPDOWN ====================
 window.toggleProfileDropdown = function() {
     const dropdown = document.getElementById('profileDropdown');
     const trigger = document.querySelector('.user-profile-trigger');
@@ -247,8 +243,7 @@ function formatTime(timeStr) {
     return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
 }
 
-// ==================== COMPLAINTS (EDIT/DELETE/STATUS) ====================
-
+// ==================== COMPLAINTS ====================
 async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     const container = document.getElementById(elementId);
     if (!container) return;
@@ -316,7 +311,6 @@ async function saveComplaintStatus(id) {
         return;
     }
     
-    // Loading state
     const originalText = btn.innerHTML;
     btn.innerHTML = '⏳ Saving...';
     btn.disabled = true;
@@ -329,8 +323,6 @@ async function saveComplaintStatus(id) {
         
         const statusLabel = newStatus === 'progress' ? 'In Progress' : newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
         showToast(`Status updated to ${statusLabel}`, 'success');
-        
-        // Refresh the list to show updated badges for everyone
         renderComplaints();
     } catch (error) {
         console.error("Update Error:", error);
@@ -339,6 +331,66 @@ async function saveComplaintStatus(id) {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
+}
+
+async function openEditComplaintModal(id) {
+    if (userRole !== 'admin') return;
+    try {
+        const doc = await db.collection('complaints').doc(id).get();
+        if (doc.exists) {
+            const data = doc.data();
+            document.getElementById('complaint-edit-id').value = id;
+            document.getElementById('complaint-category').value = data.category;
+            document.getElementById('complaint-title').value = data.title;
+            document.getElementById('complaint-desc').value = data.description;
+            document.getElementById('complaint-purok').value = data.purok;
+            document.getElementById('complaint-modal-title').textContent = '✏️ Edit Complaint';
+            openModal('complaintModal');
+        }
+    } catch (e) { showToast('Error loading complaint', 'danger'); }
+}
+
+async function deleteComplaint(id) {
+    if (userRole !== 'admin') return;
+    if (!confirm('Are you sure you want to delete this complaint?')) return;
+    try {
+        await db.collection('complaints').doc(id).delete();
+        showToast('Complaint deleted', 'success');
+        renderComplaints();
+    } catch (e) { showToast('Failed to delete', 'danger'); }
+}
+
+async function submitComplaint() {
+    const category = document.getElementById('complaint-category')?.value;
+    const title = document.getElementById('complaint-title')?.value.trim();
+    const desc = document.getElementById('complaint-desc')?.value.trim();
+    const purok = document.getElementById('complaint-purok')?.value;
+    const editId = document.getElementById('complaint-edit-id')?.value;
+
+    if (!category || !title || !desc || !purok) { showToast('Fill all fields.', 'warning'); return; }
+
+    try {
+        const data = { category, title, description: desc, purok };
+        if (editId) {
+            await db.collection('complaints').doc(editId).update({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            showToast('Complaint updated!', 'success');
+        } else {
+            await db.collection('complaints').add({ ...data, userId: currentUser.uid, userName: currentUser.email, status: 'pending', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            showToast('Complaint filed!', 'success');
+        }
+        closeModal('complaintModal');
+        renderComplaints();
+        document.getElementById('complaint-edit-id').value = '';
+        ['complaint-category', 'complaint-title', 'complaint-desc', 'complaint-purok'].forEach(id => { 
+            const el = document.getElementById(id); if(el) el.value = ''; 
+        });
+    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
+}
+
+function filterComplaints(filter, btn) {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    renderComplaints(filter);
 }
 
 // ==================== RESIDENTS ====================
@@ -366,7 +418,7 @@ function stringToColor(str) {
     return '#' + '00000'.substring(0, 6 - c.length) + c;
 }
 
-// ==================== SUMMONS (EDIT/DELETE) ====================
+// ==================== SUMMONS ====================
 async function renderSummons() {
     const container = document.getElementById('summonsList');
     if (!container) return;
@@ -452,11 +504,7 @@ async function addSummons() {
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
-// ==================== COURT CALENDAR (EDIT/DELETE) ====================
-let currentMonth = new Date();
-let selectedDate = new Date();
-let allBookings = [];
-
+// ==================== COURT CALENDAR ====================
 function getLocalDateString(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -666,7 +714,7 @@ async function adminClearDay() {
     } catch (e) { showToast('Error', 'danger'); }
 }
 
-// ==================== ANNOUNCEMENTS (EDIT/DELETE) ====================
+// ==================== ANNOUNCEMENTS ====================
 async function loadAnnouncements() {
     const container = document.getElementById('announcementsList');
     if (!container) return;
@@ -905,7 +953,7 @@ window.saveNotifPrefs = saveNotifPrefs;
 window.loadAccountPage = loadAccountPage;
 window.submitComplaint = submitComplaint;
 window.filterComplaints = filterComplaints;
-window.updateComplaintStatus = updateComplaintStatus;
+window.saveComplaintStatus = saveComplaintStatus;
 window.renderResidents = renderResidents;
 window.addSummons = addSummons;
 window.openEditSummonsModal = openEditSummonsModal;
@@ -917,7 +965,3 @@ window.deleteAnnouncement = deleteAnnouncement;
 window.loadAnnouncements = loadAnnouncements;
 window.openEditComplaintModal = openEditComplaintModal;
 window.deleteComplaint = deleteComplaint;
-window.openEditComplaintModal = openEditComplaintModal;
-window.deleteComplaint = deleteComplaint;
-window.submitComplaint = submitComplaint;
-window.saveComplaintStatus = saveComplaintStatus;
