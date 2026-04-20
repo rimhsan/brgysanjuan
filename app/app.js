@@ -1,6 +1,6 @@
-// 🔑 FIREBASE CONFIGURATION - CHECK THIS!
+// 🔑 FIREBASE CONFIGURATION
 const firebaseConfig = {
-    apiKey: "AIzaSyCUn_OVro6-NBfIAn0SAcGZeV25HqiCvlc", // <-- Ensure this matches your console
+    apiKey: "AIzaSyCUn_OVro6-NBfIAn0SAcGZeV25HqiCvlc",
     authDomain: "barangay-san-juan.firebaseapp.com",
     projectId: "barangay-san-juan",
     storageBucket: "barangay-san-juan.firebasestorage.app",
@@ -14,19 +14,18 @@ try {
     firebase.initializeApp(firebaseConfig);
 } catch (e) {
     console.error("Firebase Init Error:", e);
-    alert("Firebase Configuration Error. Check console.");
 }
 
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Global state
+// Global State
 let currentUser = null;
 let userRole = 'resident';
 let mapInstance = null;
 let accountDropdownOpen = false;
 
-// Detect current page
+// Detect Current Page
 const currentPage = window.location.pathname.split('/').pop() || 'index.html';
 
 // Constants
@@ -47,16 +46,14 @@ const categoryConfig = {
     general: { label: '📢 General', class: 'cat-general' }
 };
 
-// ==================== AUTHENTICATION (CRITICAL FIX) ====================
+// ==================== AUTHENTICATION ====================
 auth.onAuthStateChanged(async (user) => {
     const isLoginPage = currentPage === 'login.html';
     const authOverlay = document.getElementById('auth-overlay');
-    const appWrapper = document.getElementById('app-wrapper');
-
+    
     if (user) {
         currentUser = user;
         
-        // If logged in but on login page, redirect to dashboard
         if (isLoginPage) {
             window.location.href = 'index.html';
             return;
@@ -64,31 +61,21 @@ auth.onAuthStateChanged(async (user) => {
 
         try {
             await loadUserProfile();
-            
-            // Hide Auth, Show App
             if (authOverlay) authOverlay.style.display = 'none';
-            if (appWrapper) appWrapper.style.display = 'block';
-            
-            // Initialize Page Data
             initializeApp();
         } catch (error) {
             console.error("Init Error:", error);
-            // Even if init fails, show the app so user isn't stuck on loading
             if (authOverlay) authOverlay.style.display = 'none';
-            if (appWrapper) appWrapper.style.display = 'block';
         }
     } else {
         currentUser = null;
         
-        // If NOT logged in and NOT on login page, redirect to login
         if (!isLoginPage) {
             window.location.href = 'login.html';
             return;
         }
         
-        // Show Auth Overlay if on login page
         if (authOverlay) authOverlay.style.display = 'flex';
-        if (appWrapper) appWrapper.style.display = 'none';
     }
 });
 
@@ -100,18 +87,20 @@ async function loadUserProfile() {
             const data = doc.data();
             userRole = data.role || 'resident';
             
-            // Update UI Elements safely
-            const setName = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-            setName('user-name', `${data.firstName} ${data.lastName}`);
-            setName('user-role', data.role === 'admin' ? 'Barangay Admin' : 'Resident');
-            setName('dropdown-name', `${data.firstName} ${data.lastName}`);
-            setName('dropdown-email', data.email);
-            
+            const name = `${data.firstName} ${data.lastName}`;
             const initials = `${data.firstName[0]}${data.lastName[0]}`.toUpperCase();
-            setName('user-avatar', initials);
-            setName('dropdown-avatar', initials);
             
-            // Show Admin Buttons if applicable
+            const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+            
+            setText('user-name', name);
+            setText('user-role', userRole === 'admin' ? 'Admin' : 'Resident');
+            setText('dropdown-name', name);
+            setText('dropdown-email', data.email);
+            setText('user-avatar', initials);
+            setText('dropdown-avatar', initials);
+            setText('dropdown-role', userRole === 'admin' ? 'Admin' : 'Resident');
+            setText('user-role-badge', userRole === 'admin' ? 'Admin' : 'Resident');
+            
             if (userRole === 'admin') {
                 const showBtn = (id) => { const el = document.getElementById(id); if(el) el.style.display = 'inline-flex'; };
                 showBtn('schedule-summons-btn');
@@ -126,57 +115,34 @@ async function loadUserProfile() {
 
 // ==================== PAGE INITIALIZATION ====================
 async function initializeApp() {
-    // Only run functions relevant to the current page to prevent errors
-    
     if (currentPage === 'index.html' || currentPage === '') {
         await updateStats();
         await loadRecentComplaints();
-        await loadActivityTimeline();
+        await loadRecentCourtBookings();
     }
-    
-    if (currentPage === 'complaints.html') {
-        await renderComplaints('all', 'complaintList');
-    }
-    
-    if (currentPage === 'residents.html') {
-        await renderResidents();
-    }
-    
-    if (currentPage === 'summons.html') {
-        await renderSummons();
-    }
-    
-    if (currentPage === 'court.html') {
-        // TRUE forces it to reset to TODAY'S date locally
-        await initCalendar(true);
-    }
-    
-    if (currentPage === 'map.html') {
-        setTimeout(initMap, 500); // Delay slightly to ensure container exists
-    }
-    
-    if (currentPage === 'announcements.html') {
-        await loadAnnouncements();
-    }
-        if (currentPage === 'account.html') {
-        await loadAccountPage(); // This function is in the JS I provided earlier
-    }
+    if (currentPage === 'complaints.html') await renderComplaints('all', 'complaintList');
+    if (currentPage === 'residents.html') await renderResidents();
+    if (currentPage === 'summons.html') await renderSummons();
+    if (currentPage === 'court.html') await initCalendar(true);
+    if (currentPage === 'map.html') setTimeout(initMap, 500);
+    if (currentPage === 'announcements.html') await loadAnnouncements();
+    if (currentPage === 'account.html') await loadAccountPage();
 }
 
-// ==================== NAVIGATION & UI HELPERS ====================
-function toggleSidebar() { 
+// ==================== UI HELPERS ====================
+function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.classList.toggle('open'); 
+    if (sidebar) sidebar.classList.toggle('open');
 }
 
-function openModal(id) { 
+function openModal(id) {
     const modal = document.getElementById(id);
-    if (modal) modal.classList.add('show'); 
+    if (modal) modal.classList.add('show');
 }
 
-function closeModal(id) { 
+function closeModal(id) {
     const modal = document.getElementById(id);
-    if (modal) modal.classList.remove('show'); 
+    if (modal) modal.classList.remove('show');
 }
 
 function showToast(message, type = 'success') {
@@ -189,122 +155,38 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 3000);
 }
 
-function escapeHtml(text) { 
-    if (!text) return ''; 
-    const div = document.createElement('div'); 
-    div.textContent = text; 
-    return div.innerHTML; 
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
-// ==================== ACCOUNT DROPDOWN ====================
-function toggleAccountDropdown() {
-    const dropdown = document.getElementById('accountDropdown');
-    if (!dropdown) return;
-    accountDropdownOpen = !accountDropdownOpen;
-    dropdown.classList.toggle('show', accountDropdownOpen);
-}
+// ==================== DROPDOWN ====================
+window.toggleProfileDropdown = function() {
+    const dropdown = document.getElementById('profileDropdown');
+    const trigger = document.querySelector('.user-profile-trigger');
+    if (dropdown) {
+        dropdown.classList.toggle('show');
+        if (trigger) trigger.classList.toggle('active');
+    }
+};
 
-document.addEventListener('click', (e) => {
-    if (!accountDropdownOpen) return;
-    const userProfile = document.querySelector('.user-profile');
-    const dropdown = document.getElementById('accountDropdown');
-    if (userProfile && dropdown && !userProfile.contains(e.target) && !dropdown.contains(e.target)) {
-        toggleAccountDropdown();
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('profileDropdown');
+    const trigger = document.querySelector('.user-profile-trigger');
+    if (dropdown && trigger && !trigger.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('show');
+        if(trigger) trigger.classList.remove('active');
     }
 });
 
-function openAccountModal() { 
-    toggleAccountDropdown(); 
-    loadAccountData(); 
-    openModal('accountModal'); 
+async function handleLogout() { 
+    await auth.signOut(); 
+    window.location.href = 'login.html'; 
 }
 
-function closeAccountModal() { closeModal('accountModal'); }
-function openAccountSettings() { toggleAccountDropdown(); openAccountModal(); switchTab('security'); }
-
-async function loadAccountData() {
-    if (!currentUser) return;
-    try {
-        const doc = await db.collection('profiles').doc(currentUser.uid).get();
-        if (doc.exists) {
-            const data = doc.data();
-            const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
-            setVal('edit-first-name', data.firstName);
-            setVal('edit-last-name', data.lastName);
-            setVal('edit-email', data.email);
-            setVal('edit-purok', data.purok);
-            setVal('edit-phone', data.phone);
-            
-            const setCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val !== false; };
-            setCheck('email-notifications', data.emailNotifications);
-            setCheck('complaint-notifications', data.complaintNotifications);
-            setCheck('summons-notifications', data.summonsNotifications);
-        }
-    } catch (error) { console.error(error); }
-}
-
-function switchTab(tabName) {
-    document.querySelectorAll('.account-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.account-tab-content').forEach(c => c.classList.remove('active'));
-    if(event && event.target) event.target.classList.add('active');
-    const content = document.getElementById(`${tabName}-tab`);
-    if(content) content.classList.add('active');
-}
-
-async function saveProfileChanges() {
-    const firstName = document.getElementById('edit-first-name')?.value.trim();
-    const lastName = document.getElementById('edit-last-name')?.value.trim();
-    const email = document.getElementById('edit-email')?.value.trim();
-    const purok = document.getElementById('edit-purok')?.value;
-    const phone = document.getElementById('edit-phone')?.value.trim();
-    
-    if (!firstName || !lastName || !email) { showToast('Fill required fields.', 'warning'); return; }
-    
-    try {
-        await db.collection('profiles').doc(currentUser.uid).update({ firstName, lastName, email, purok, phone });
-        if (email !== currentUser.email) await currentUser.updateEmail(email);
-        await currentUser.updateProfile({ displayName: `${firstName} ${lastName}` });
-        showToast('Profile updated!', 'success');
-        closeAccountModal();
-        loadUserProfile(); // Refresh topbar
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
-}
-
-async function changePassword() {
-    const current = document.getElementById('current-password')?.value;
-    const newPass = document.getElementById('new-password')?.value;
-    const confirm = document.getElementById('confirm-password')?.value;
-    
-    if (!current || !newPass || !confirm) { showToast('Fill all fields.', 'warning'); return; }
-    if (newPass !== confirm) { showToast('Passwords mismatch.', 'danger'); return; }
-    
-    try {
-        const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, current);
-        await currentUser.reauthenticateWithCredential(credential);
-        await currentUser.updatePassword(newPass);
-        showToast('Password updated!', 'success');
-        ['current-password', 'new-password', 'confirm-password'].forEach(id => {
-            const el = document.getElementById(id); if(el) el.value = '';
-        });
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
-}
-
-async function saveNotificationSettings() {
-    try {
-        await db.collection('profiles').doc(currentUser.uid).update({
-            emailNotifications: document.getElementById('email-notifications')?.checked,
-            complaintNotifications: document.getElementById('complaint-notifications')?.checked,
-            summonsNotifications: document.getElementById('summons-notifications')?.checked
-        });
-        showToast('Preferences saved!', 'success');
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
-}
-
-function viewMyComplaints() { toggleAccountDropdown(); window.location.href = 'complaints.html'; }
-async function handleLogout() { await auth.signOut(); window.location.href = 'login.html'; }
-
-// ==================== DATA FUNCTIONS (SAFE) ====================
-
+// ==================== DASHBOARD DATA ====================
 async function updateStats() {
     if (!document.getElementById('stat-residents')) return;
     try {
@@ -335,20 +217,42 @@ async function loadRecentComplaints() {
     } catch (e) { container.innerHTML = '<p>Error.</p>'; }
 }
 
-async function loadActivityTimeline() {
-    const container = document.getElementById('activity-timeline');
+async function loadRecentCourtBookings() {
+    const container = document.getElementById('recent-court-bookings');
     if (!container) return;
     try {
-        const snap = await db.collection('complaints').orderBy('createdAt', 'desc').limit(5).get();
-        const activities = snap.docs.map(doc => {
-            const d = doc.data();
-            return { time: d.createdAt?.toDate() || new Date(), event: `New complaint: ${d.title}` };
-        });
-        if (activities.length === 0) { container.innerHTML = '<p style="text-align:center;color:#7f8c8d;">No activity.</p>'; return; }
-        container.innerHTML = activities.map(a => `<div class="timeline-item"><div class="time">${a.time.toLocaleString()}</div><div class="event">${escapeHtml(a.event)}</div></div>`).join('');
+        const snap = await db.collection('courtBookings').orderBy('createdAt', 'desc').limit(5).get();
+        const bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).slice(0, 5);
+        
+        if (bookings.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:#7f8c8d;padding:20px;">No recent bookings.</p>';
+            return;
+        }
+        
+        container.innerHTML = bookings.map(b => {
+            const time = (b.startTime && b.endTime) ? `${formatTime(b.startTime)} - ${formatTime(b.endTime)}` : 'All Day';
+            return `
+                <div class="court-booking-item ${b.isAdminBooking ? 'admin' : ''}">
+                    <div class="court-booking-header">
+                        <span class="court-booking-time">${time}</span>
+                        <span class="court-booking-date">${new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    </div>
+                    <div class="court-booking-name">${escapeHtml(b.bookerName)}</div>
+                    <div class="court-booking-activity">${escapeHtml(b.activity)}</div>
+                </div>
+            `;
+        }).join('');
     } catch (e) { container.innerHTML = '<p>Error.</p>'; }
 }
 
+function formatTime(timeStr) {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':');
+    const hour = parseInt(h);
+    return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+}
+
+// ==================== COMPLAINTS ====================
 async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     const container = document.getElementById(elementId);
     if (!container) return;
@@ -409,6 +313,7 @@ function filterComplaints(filter, btn) {
     renderComplaints(filter);
 }
 
+// ==================== RESIDENTS ====================
 async function renderResidents() {
     const container = document.getElementById('residentGrid');
     if (!container) return;
@@ -426,6 +331,14 @@ async function renderResidents() {
     } catch (e) { container.innerHTML = '<p>Error.</p>'; }
 }
 
+function stringToColor(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    const c = (hash & 0x00ffffff).toString(16).toUpperCase();
+    return '#' + '00000'.substring(0, 6 - c.length) + c;
+}
+
+// ==================== SUMMONS ====================
 async function renderSummons() {
     const container = document.getElementById('summonsList');
     if (!container) return;
@@ -450,9 +363,7 @@ async function addSummons() {
     const d = document.getElementById('summons-date')?.value;
     const t = document.getElementById('summons-time')?.value;
     const l = document.getElementById('summons-location')?.value;
-    
     if (!c || !r || !caseT || !d || !t) { showToast('Fill all fields.', 'warning'); return; }
-    
     try {
         await db.collection('summons').add({ complainantName: c, respondentName: r, caseTitle: caseT, date: d, time: t, location: l, status: 'confirmed', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         closeModal('summonsModal');
@@ -461,13 +372,11 @@ async function addSummons() {
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
-// ==================== CALENDAR & COURT FUNCTIONS ====================
-
+// ==================== COURT CALENDAR ====================
 let currentMonth = new Date();
 let selectedDate = new Date();
 let allBookings = [];
 
-// Helper: Get YYYY-MM-DD string from any Date object (Local Time)
 function getLocalDateString(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -475,14 +384,11 @@ function getLocalDateString(dateObj) {
     return `${y}-${m}-${d}`;
 }
 
-// Initialize Calendar
 async function initCalendar(resetDate = false) {
     if (resetDate) {
-        // Force reset to NOW
         currentMonth = new Date();
         selectedDate = new Date();
     }
-    
     renderCalendarHeader();
     await fetchMonthBookings();
     renderCalendarGrid();
@@ -497,15 +403,10 @@ function renderCalendarHeader() {
 async function fetchMonthBookings() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    // Use local date strings for query bounds
     const startOfMonth = getLocalDateString(new Date(year, month, 1));
     const endOfMonth = getLocalDateString(new Date(year, month + 1, 0));
-    
     try {
-        const snapshot = await db.collection('courtBookings')
-            .where('date', '>=', startOfMonth)
-            .where('date', '<=', endOfMonth)
-            .get();
+        const snapshot = await db.collection('courtBookings').where('date', '>=', startOfMonth).where('date', '<=', endOfMonth).get();
         allBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
         console.warn("Fetch error", error);
@@ -516,8 +417,6 @@ async function fetchMonthBookings() {
 function renderCalendarGrid() {
     const grid = document.getElementById('calendar-grid');
     if(!grid) return;
-
-    // Clear old days (keep headers)
     const headers = Array.from(grid.children).slice(0, 7);
     grid.innerHTML = '';
     headers.forEach(h => grid.appendChild(h));
@@ -526,39 +425,28 @@ function renderCalendarGrid() {
     const month = currentMonth.getMonth();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    // Get Today's string once for comparison
     const todayStr = getLocalDateString(new Date());
     const selectedStr = getLocalDateString(selectedDate);
     
-    // Empty cells
     for (let i = 0; i < firstDayOfMonth; i++) {
         const emptyCell = document.createElement('div');
         grid.appendChild(emptyCell);
     }
     
-    // Days
     for (let day = 1; day <= daysInMonth; day++) {
-        // Construct date string manually to avoid timezone shifts
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        
         const dayBookings = allBookings.filter(b => b.date === dateStr);
-        
-        // Compare strings directly
         const isToday = (dateStr === todayStr);
         const isSelected = (dateStr === selectedStr);
         
         const cell = document.createElement('div');
         cell.className = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
         cell.setAttribute('data-count', dayBookings.length);
-        
         cell.onclick = () => {
-            // Set selected date explicitly to avoid timezone issues
             selectedDate = new Date(year, month, day);
             renderCalendarGrid(); 
         };
         
-        // Render bookings inside grid
         let bookingsHtml = '';
         if (dayBookings.length > 0) {
             dayBookings.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
@@ -566,42 +454,35 @@ function renderCalendarGrid() {
             dayBookings.forEach(b => {
                 const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
                 const isAdmin = b.isAdminBooking;
-                bookingsHtml += `
-                    <div class="grid-booking ${isAdmin ? 'admin' : ''}">
-                        <div class="grid-time">${time}</div>
-                        <div class="grid-name">${escapeHtml(b.bookerName)}</div>
-                    </div>
-                `;
+                bookingsHtml += `<div class="grid-booking ${isAdmin ? 'admin' : ''}"><div class="grid-time">${time}</div><div class="grid-name">${escapeHtml(b.bookerName)}</div></div>`;
             });
             bookingsHtml += '</div>';
         }
         
-        cell.innerHTML = `
-            <div class="day-top"><div class="day-number">${day}</div></div>
-            ${bookingsHtml}
-        `;
+        cell.innerHTML = `<div class="day-top"><div class="day-number">${day}</div></div>${bookingsHtml}`;
         grid.appendChild(cell);
     }
 }
 
-// Change Month (Arrow Buttons)
 function changeMonth(delta) {
     currentMonth.setMonth(currentMonth.getMonth() + delta);
-    initCalendar(false); 
+    initCalendar(false);
 }
 
-// Open Booking Modal
 function openBookingModal() {
-    // Ensure the input gets the local date string of the selected date
     document.getElementById('court-date').value = getLocalDateString(selectedDate);
     openModal('courtModal');
 }
 
-// Submit Booking
+function toMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h * 60) + m;
+}
+
 async function bookCourt() {
     const name = document.getElementById('court-booker')?.value.trim();
-    // Use the value from the input, which is already in YYYY-MM-DD format
-    const date = document.getElementById('court-date')?.value; 
+    const date = document.getElementById('court-date')?.value;
     const start = document.getElementById('court-start-time')?.value;
     const end = document.getElementById('court-end-time')?.value;
     const activity = document.getElementById('court-activity')?.value;
@@ -616,8 +497,6 @@ async function bookCourt() {
     try {
         const reqStart = toMinutes(start);
         const reqEnd = toMinutes(end);
-        
-        // Check overlaps using the date string from the form
         const hasOverlap = allBookings.some(b => {
             if (b.date !== date) return false;
             return (reqStart < toMinutes(b.endTime) && reqEnd > toMinutes(b.startTime));
@@ -626,27 +505,18 @@ async function bookCourt() {
         if (hasOverlap) { showToast('Time slot overlaps!', 'danger'); return; }
         
         await db.collection('courtBookings').add({
-            userId: currentUser.uid, 
-            bookerName: name, 
-            date: date, // Save exactly what was selected
-            startTime: start, 
-            endTime: end, 
-            activity,
-            isAdminBooking: false, 
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity,
+            isAdminBooking: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
         closeModal('courtModal');
         showToast('Booking Confirmed!', 'success');
-        
-        // Refresh view
         await fetchMonthBookings();
         renderCalendarGrid();
         document.getElementById('court-booker').value = '';
     } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
 }
 
-// Admin Clear
 async function adminClearDay() {
     if (userRole !== 'admin') return;
     const date = getLocalDateString(selectedDate);
@@ -663,98 +533,99 @@ async function adminClearDay() {
     } catch (e) { showToast('Error', 'danger'); }
 }
 
-// Helpers
-function toMinutes(timeStr) {
-    if (!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    return (h * 60) + m;
-}
-function escapeHtml(text) {
-    if (!text) return '';
-    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// ==================== ANNOUNCEMENTS ====================
+async function loadAnnouncements() {
+    const container = document.getElementById('announcementsList');
+    if (!container) return;
+    container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">Loading...</p>';
+    try {
+        const snap = await db.collection('announcements').orderBy('createdAt', 'desc').get();
+        const announcements = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (announcements.length === 0) { container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No announcements.</p>'; return; }
+        
+        container.innerHTML = announcements.map(a => `
+            <div class="announcement-card">
+                <div class="announcement-header">
+                    <div>
+                        <span class="complaint-category cat-${a.category || 'general'}">${categoryConfig[a.category]?.label || '📢 General'}</span>
+                        <div class="announcement-title">${escapeHtml(a.title)}</div>
+                    </div>
+                    ${userRole === 'admin' ? `
+                        <div class="announcement-actions">
+                            <button class="btn btn-sm btn-outline" onclick="editAnnouncement('${a.id}')">✏️ Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${a.id}')">🗑️ Delete</button>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="announcement-content">${escapeHtml(a.content)}</div>
+                <div class="announcement-meta">
+                    <span>📅 ${a.createdAt ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
+                    <span>👤 ${escapeHtml(a.createdBy || 'Admin')}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) { container.innerHTML = '<p>Error loading announcements.</p>'; }
 }
 
-// Global Exports
-window.initCalendar = initCalendar;
-window.changeMonth = changeMonth;
-window.openBookingModal = openBookingModal;
-window.bookCourt = bookCourt;
-window.adminClearDay = adminClearDay;
-window.openModal = function(id) { document.getElementById(id).classList.add('show'); };
-window.closeModal = function(id) { document.getElementById(id).classList.remove('show'); };
-window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
-window.toggleAccountDropdown = function() { document.getElementById('accountDropdown')?.classList.toggle('show'); };
-window.handleLogout = async function() { await firebase.auth().signOut(); window.location.href='login.html'; };
-window.saveProfileChanges = async function() {
-    const fn = document.getElementById('edit-first-name')?.value;
-    const ln = document.getElementById('edit-last-name')?.value;
-    if(fn && ln) {
-        try {
-            await db.collection('profiles').doc(currentUser.uid).update({ firstName: fn, lastName: ln });
-            showToast('Saved!', 'success');
-            window.closeModal('accountModal');
-            document.getElementById('user-name').textContent = `${fn} ${ln}`;
-        } catch(e) { showToast('Error', 'danger'); }
+function openAnnouncementModal(editId = null) {
+    const titleEl = document.getElementById('announcement-modal-title');
+    if(titleEl) titleEl.textContent = editId ? '✏️ Edit Announcement' : '📢 Add Announcement';
+    const editIdEl = document.getElementById('announcement-edit-id');
+    if(editIdEl) editIdEl.value = editId || '';
+    
+    if (editId) {
+        db.collection('announcements').doc(editId).get().then(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+                setVal('announcement-title', data.title);
+                setVal('announcement-category', data.category);
+                setVal('announcement-content', data.content);
+            }
+        });
+    } else {
+        ['announcement-title', 'announcement-content'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+        const catEl = document.getElementById('announcement-category'); if(catEl) catEl.value = 'general';
     }
-};
-
-// ==================== UTILS ====================
-function stringToColor(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    const c = (hash & 0x00ffffff).toString(16).toUpperCase();
-    return '#' + '00000'.substring(0, 6 - c.length) + c;
+    openModal('announcementModal');
 }
 
-function initMap() {
-    if (mapInstance || !document.getElementById('map')) return;
-    mapInstance = L.map('map').setView([13.42050593415853, 123.41943332823458], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
-    L.marker([13.42050593415853, 123.41943332823458]).addTo(mapInstance).bindPopup('Barangay Hall');
+async function saveAnnouncement() {
+    const title = document.getElementById('announcement-title')?.value.trim();
+    const category = document.getElementById('announcement-category')?.value;
+    const content = document.getElementById('announcement-content')?.value.trim();
+    const editId = document.getElementById('announcement-edit-id')?.value;
+    
+    if (!title || !content) { showToast('Fill title and content.', 'warning'); return; }
+    
+    try {
+        const data = { title, category, content, updatedBy: currentUser.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (editId) {
+            await db.collection('announcements').doc(editId).update(data);
+            showToast('Updated!', 'success');
+        } else {
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            data.createdBy = currentUser.email;
+            await db.collection('announcements').add(data);
+            showToast('Posted!', 'success');
+        }
+        closeModal('announcementModal');
+        loadAnnouncements();
+    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
 }
 
-// Expose global functions
-window.handleLogin = async () => {
-    const e = document.getElementById('login-email')?.value;
-    const p = document.getElementById('login-password')?.value;
-    if(!e||!p) return alert('Enter credentials');
-    try { await auth.signInWithEmailAndPassword(e,p); } catch(err) { alert(err.message); }
-};
-window.handleSignup = async () => {
-    // Simplified signup for demo
-    alert('Please use the full signup form in the HTML');
-};
-window.handleLogout = handleLogout;
-window.toggleAuthMode = (m) => {
-    document.getElementById('login-form').style.display = m==='login'?'block':'none';
-    document.getElementById('signup-form').style.display = m==='signup'?'block':'none';
-};
-window.toggleSidebar = toggleSidebar;
-window.openModal = openModal;
-window.closeModal = closeModal;
-window.toggleAccountDropdown = toggleAccountDropdown;
-window.openAccountModal = openAccountModal;
-window.closeAccountModal = closeAccountModal;
-window.openAccountSettings = openAccountSettings;
-window.switchTab = switchTab;
-window.saveProfileChanges = saveProfileChanges;
-window.changePassword = changePassword;
-window.saveNotificationSettings = saveNotificationSettings;
-window.viewMyComplaints = viewMyComplaints;
-window.submitComplaint = submitComplaint;
-window.filterComplaints = filterComplaints;
-window.updateComplaintStatus = updateComplaintStatus;
-window.renderResidents = renderResidents;
-window.addSummons = addSummons;
-window.bookCourt = bookCourt;
-window.filterCourt = filterCourt;
-window.changeDate = changeDate;
-window.openAdminCourtModal = openAdminCourtModal;
-window.adminBookCourt = adminBookCourt;
-window.adminRemoveBooking = adminRemoveBooking;
-window.openBookingModal = openBookingModal;
+async function editAnnouncement(id) { openAnnouncementModal(id); }
+async function deleteAnnouncement(id) {
+    if (!confirm('Delete?')) return;
+    try {
+        await db.collection('announcements').doc(id).delete();
+        showToast('Deleted.', 'success');
+        loadAnnouncements();
+    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
+}
 
-// ==================== ACCOUNT PAGE FUNCTIONS ====================
+// ==================== ACCOUNT PAGE ====================
 function switchAccountTab(tabId, btn) {
     document.querySelectorAll('.account-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.account-nav button').forEach(b => b.classList.remove('active'));
@@ -768,37 +639,37 @@ async function loadAccountPage() {
         const doc = await db.collection('profiles').doc(currentUser.uid).get();
         if (doc.exists) {
             const data = doc.data();
-            document.getElementById('acc-first-name').value = data.firstName || '';
-            document.getElementById('acc-last-name').value = data.lastName || '';
-            document.getElementById('acc-email').value = data.email || '';
-            document.getElementById('acc-purok').value = data.purok || '';
-            document.getElementById('acc-phone').value = data.phone || '';
-            document.getElementById('acc-notif-email').checked = data.emailNotifications !== false;
+            const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+            setVal('acc-first-name', data.firstName);
+            setVal('acc-last-name', data.lastName);
+            setVal('acc-email', data.email);
+            setVal('acc-purok', data.purok);
+            setVal('acc-phone', data.phone);
+            const setCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val !== false; };
+            setCheck('acc-notif-email', data.emailNotifications);
         }
         await loadMyComplaints();
     } catch (e) { console.error(e); }
 }
 
 async function saveAccountProfile() {
-    const fn = document.getElementById('acc-first-name').value.trim();
-    const ln = document.getElementById('acc-last-name').value.trim();
-    const purok = document.getElementById('acc-purok').value;
-    const phone = document.getElementById('acc-phone').value.trim();
+    const fn = document.getElementById('acc-first-name')?.value.trim();
+    const ln = document.getElementById('acc-last-name')?.value.trim();
+    const purok = document.getElementById('acc-purok')?.value;
+    const phone = document.getElementById('acc-phone')?.value.trim();
     if (!fn || !ln) { showToast('Name is required', 'warning'); return; }
     try {
         await db.collection('profiles').doc(currentUser.uid).update({ firstName: fn, lastName: ln, purok, phone });
         await currentUser.updateProfile({ displayName: `${fn} ${ln}` });
         showToast('Profile updated!', 'success');
-        // Update topbar if visible
-        const el = document.getElementById('user-name-brief');
-        if (el) el.textContent = `${fn} ${ln}`;
+        loadUserProfile();
     } catch (e) { showToast('Error: ' + e.message, 'danger'); }
 }
 
 async function changeAccountPassword() {
-    const curr = document.getElementById('acc-current-pass').value;
-    const newP = document.getElementById('acc-new-pass').value;
-    const conf = document.getElementById('acc-confirm-pass').value;
+    const curr = document.getElementById('acc-current-pass')?.value;
+    const newP = document.getElementById('acc-new-pass')?.value;
+    const conf = document.getElementById('acc-confirm-pass')?.value;
     if (!curr || !newP || !conf) { showToast('Fill all password fields', 'warning'); return; }
     if (newP.length < 6) { showToast('Min 6 characters', 'warning'); return; }
     if (newP !== conf) { showToast('Passwords do not match', 'danger'); return; }
@@ -806,7 +677,7 @@ async function changeAccountPassword() {
         const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, curr);
         await currentUser.reauthenticateWithCredential(cred);
         await currentUser.updatePassword(newP);
-        showToast('Password updated successfully!', 'success');
+        showToast('Password updated!', 'success');
         ['acc-current-pass','acc-new-pass','acc-confirm-pass'].forEach(id => document.getElementById(id).value = '');
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
@@ -814,7 +685,7 @@ async function changeAccountPassword() {
 async function saveNotifPrefs() {
     try {
         await db.collection('profiles').doc(currentUser.uid).update({
-            emailNotifications: document.getElementById('acc-notif-email').checked
+            emailNotifications: document.getElementById('acc-notif-email')?.checked
         });
         showToast('Preferences saved!', 'success');
     } catch (e) { showToast('Error saving', 'danger'); }
@@ -824,10 +695,7 @@ async function loadMyComplaints() {
     const container = document.getElementById('my-complaints-list');
     if (!container) return;
     try {
-        const snap = await db.collection('complaints')
-            .where('userId', '==', currentUser.uid)
-            .orderBy('createdAt', 'desc')
-            .get();
+        const snap = await db.collection('complaints').where('userId', '==', currentUser.uid).orderBy('createdAt', 'desc').get();
         if (snap.empty) {
             container.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:40px;">You haven\'t filed any complaints yet.</p>';
             return;
@@ -835,69 +703,79 @@ async function loadMyComplaints() {
         container.innerHTML = snap.docs.map(doc => {
             const c = doc.data();
             const cls = c.status === 'resolved' ? 'resolved' : (c.status === 'progress' ? 'progress' : '');
-            return `
-                <div class="complaint-card ${cls}">
-                    <div class="complaint-header">
-                        <h4>${escapeHtml(c.title)}</h4>
-                        <span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status||'Pending'}</span>
-                    </div>
-                    <div class="complaint-desc">${escapeHtml(c.description)}</div>
-                    <div class="complaint-meta">
-                        <span>📍 ${escapeHtml(c.purok)}</span>
-                        <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
-                    </div>
-                </div>`;
+            return `<div class="complaint-card ${cls}"><div class="complaint-header"><h4>${escapeHtml(c.title)}</h4><span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status||'Pending'}</span></div><div class="complaint-desc">${escapeHtml(c.description)}</div><div class="complaint-meta"><span>📍 ${escapeHtml(c.purok)}</span><span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span></div></div>`;
         }).join('');
-    } catch (e) { container.innerHTML = '<p style="color:var(--danger)">Error loading complaints.</p>'; }
+    } catch (e) { container.innerHTML = '<p>Error loading complaints.</p>'; }
 }
 
-// Expose to global scope
+// ==================== MAP ====================
+function initMap() {
+    if (mapInstance || !document.getElementById('map')) return;
+    mapInstance = L.map('map').setView([13.4205, 123.4194], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
+    L.marker([13.4205, 123.4194]).addTo(mapInstance).bindPopup('Barangay Hall');
+}
+
+// ==================== LOGIN/SIGNUP ====================
+window.handleLogin = async () => {
+    const e = document.getElementById('login-email')?.value;
+    const p = document.getElementById('login-password')?.value;
+    if(!e||!p) return alert('Enter credentials');
+    try { await auth.signInWithEmailAndPassword(e,p); } catch(err) { alert(err.message); }
+};
+
+window.handleSignup = async () => {
+    // Handled in HTML/JS logic separately or via a dedicated function if needed
+    // For now, relying on the HTML form logic if present, or this placeholder
+    const email = document.getElementById('signup-email')?.value;
+    const pass = document.getElementById('signup-password')?.value;
+    const fname = document.getElementById('signup-fname')?.value;
+    const lname = document.getElementById('signup-lname')?.value;
+    const purok = document.getElementById('signup-purok')?.value;
+    
+    if(!email || !pass || !fname || !lname || !purok) return alert('Fill all fields');
+    
+    try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.collection('profiles').doc(cred.user.uid).set({
+            firstName: fname, lastName: lname, purok, email, role: 'resident',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert('Account created! Please login.');
+        toggleAuthMode('login');
+    } catch(err) { alert(err.message); }
+};
+
+window.toggleAuthMode = (m) => {
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    if(loginForm) loginForm.style.display = m==='login'?'block':'none';
+    if(signupForm) signupForm.style.display = m==='signup'?'block':'none';
+};
+
+// ==================== GLOBAL EXPORTS ====================
+window.initCalendar = initCalendar;
+window.changeMonth = changeMonth;
+window.openBookingModal = openBookingModal;
+window.bookCourt = bookCourt;
+window.adminClearDay = adminClearDay;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.toggleSidebar = toggleSidebar;
+window.handleLogout = handleLogout;
+window.saveProfileChanges = saveAccountProfile; // Alias for consistency
 window.switchAccountTab = switchAccountTab;
 window.saveAccountProfile = saveAccountProfile;
 window.changeAccountPassword = changeAccountPassword;
 window.saveNotifPrefs = saveNotifPrefs;
 window.loadAccountPage = loadAccountPage;
-
-function toggleProfileDropdown() {
-    const dropdown = document.getElementById('profileDropdown');
-    const trigger = document.querySelector('.user-profile-trigger');
-    if (dropdown) {
-        dropdown.classList.toggle('show');
-        if (trigger) trigger.classList.toggle('active');
-    }
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('click', function(e) {
-    const dropdown = document.getElementById('profileDropdown');
-    const trigger = document.querySelector('.user-profile-trigger');
-    if (dropdown && trigger && !trigger.contains(e.target) && !dropdown.contains(e.target)) {
-        dropdown.classList.remove('show');
-        trigger.classList.remove('active');
-    }
-});
-
-async function loadUserProfile() {
-    if (!currentUser) return;
-    try {
-        const doc = await db.collection('profiles').doc(currentUser.uid).get();
-        if (doc.exists) {
-            const data = doc.data();
-            const name = `${data.firstName} ${data.lastName}`;
-            const initials = `${data.firstName[0]}${data.lastName[0]}`.toUpperCase();
-            
-            // Update elements safely
-            const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-            
-            setText('user-name', name);
-            setText('user-avatar', initials);
-            setText('dropdown-name', name);
-            setText('dropdown-email', data.email);
-            setText('dropdown-avatar', initials);
-            setText('dropdown-role', data.role === 'admin' ? 'Admin' : 'Resident');
-            setText('user-role', data.role === 'admin' ? 'Admin' : 'Resident');
-        }
-    } catch (error) {
-        console.error("Profile load error:", error);
-    }
-}
+window.submitComplaint = submitComplaint;
+window.filterComplaints = filterComplaints;
+window.updateComplaintStatus = updateComplaintStatus;
+window.renderResidents = renderResidents;
+window.addSummons = addSummons;
+window.openAnnouncementModal = openAnnouncementModal;
+window.saveAnnouncement = saveAnnouncement;
+window.editAnnouncement = editAnnouncement;
+window.deleteAnnouncement = deleteAnnouncement;
+window.loadAnnouncements = loadAnnouncements;
