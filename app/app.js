@@ -248,16 +248,26 @@ function formatTime(timeStr) {
 }
 
 // ==================== COMPLAINTS (EDIT/DELETE/STATUS) ====================
+
 async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     const container = document.getElementById(elementId);
     if (!container) return;
+    
     container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">Loading...</p>';
+    
     try {
         const snap = await db.collection('complaints').orderBy('createdAt', 'desc').get();
         let complaints = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (filter !== 'all') complaints = complaints.filter(c => c.status === filter);
+        
+        // Filter logic
+        if (filter !== 'all') {
+            complaints = complaints.filter(c => c.status === filter);
+        }
 
-        if (complaints.length === 0) { container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No complaints found.</p>'; return; }
+        if (complaints.length === 0) { 
+            container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No complaints found.</p>'; 
+            return; 
+        }
 
         container.innerHTML = complaints.map(c => {
             // Admin Status Dropdown
@@ -280,17 +290,27 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
             return `
                 <div class="complaint-item">
                     <div class="complaint-header">
-                        <span class="complaint-category ${categoryConfig[c.category]?.class||'cat-other'}">${categoryConfig[c.category]?.label||'📌 Other'}</span>
+                        <span class="complaint-category ${categoryConfig[c.category]?.class || 'cat-other'}">
+                            ${categoryConfig[c.category]?.label || '📌 Other'}
+                        </span>
                         ${adminControls}
                     </div>
                     <div class="complaint-title">${escapeHtml(c.title)}</div>
                     <div class="complaint-desc">${escapeHtml(c.description)}</div>
-                    <div class="complaint-meta"><span>👤 ${escapeHtml(c.userName)}</span><span>📍 ${escapeHtml(c.purok)}</span></div>
+                    <div class="complaint-meta">
+                        <span>👤 ${escapeHtml(c.userName)}</span>
+                        <span>📍 ${escapeHtml(c.purok)}</span>
+                        <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
+                    </div>
                     ${editDeleteButtons}
                 </div>
             `;
         }).join('');
-    } catch (e) { container.innerHTML = '<p>Error loading complaints.</p>'; }
+        
+    } catch (e) { 
+        console.error(e);
+        container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:20px;">Error loading complaints.</p>'; 
+    }
 }
 
 async function openEditComplaintModal(id) {
@@ -313,11 +333,14 @@ async function openEditComplaintModal(id) {
 async function deleteComplaint(id) {
     if (userRole !== 'admin') return;
     if (!confirm('Are you sure you want to delete this complaint?')) return;
+    
     try {
         await db.collection('complaints').doc(id).delete();
         showToast('Complaint deleted', 'success');
         renderComplaints();
-    } catch (e) { showToast('Failed to delete', 'danger'); }
+    } catch (error) {
+        showToast('Failed to delete: ' + error.message, 'danger');
+    }
 }
 
 async function submitComplaint() {
@@ -331,38 +354,36 @@ async function submitComplaint() {
 
     try {
         const data = { category, title, description: desc, purok };
+        
         if (editId) {
-            await db.collection('complaints').doc(editId).update({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            // Update existing
+            await db.collection('complaints').doc(editId).update({ 
+                ...data, 
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+            });
             showToast('Complaint updated!', 'success');
         } else {
-            await db.collection('complaints').add({ ...data, userId: currentUser.uid, userName: currentUser.email, status: 'pending', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            // Create new
+            await db.collection('complaints').add({ 
+                ...data, 
+                userId: currentUser.uid, 
+                userName: currentUser.email, 
+                status: 'pending', 
+                createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+            });
             showToast('Complaint filed!', 'success');
         }
+        
         closeModal('complaintModal');
         renderComplaints();
+        
+        // Clear form
         document.getElementById('complaint-edit-id').value = '';
-        ['complaint-category', 'complaint-title', 'complaint-desc', 'complaint-purok'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
-}
-
-async function updateComplaintStatus(id, newStatus) {
-    if (userRole !== 'admin') return;
-    try {
-        await db.collection('complaints').doc(id).update({ 
-            status: newStatus,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        ['complaint-category', 'complaint-title', 'complaint-desc', 'complaint-purok'].forEach(id => { 
+            const el = document.getElementById(id); if(el) el.value = ''; 
         });
-        showToast(`Status updated to ${newStatus === 'progress' ? 'In Progress' : newStatus}`, 'success');
-        renderComplaints();
-    } catch (error) {
-        showToast('Failed to update status.', 'danger');
-    }
-}
-
-function filterComplaints(filter, btn) {
-    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-    if(btn) btn.classList.add('active');
-    renderComplaints(filter);
+        
+    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
 // ==================== RESIDENTS ====================
@@ -941,3 +962,6 @@ window.deleteAnnouncement = deleteAnnouncement;
 window.loadAnnouncements = loadAnnouncements;
 window.openEditComplaintModal = openEditComplaintModal;
 window.deleteComplaint = deleteComplaint;
+window.openEditComplaintModal = openEditComplaintModal;
+window.deleteComplaint = deleteComplaint;
+window.submitComplaint = submitComplaint;
