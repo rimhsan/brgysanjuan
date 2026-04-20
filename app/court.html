@@ -134,7 +134,13 @@
                 <p style="font-size:12px;color:var(--text-light);margin-top:-10px;margin-bottom:15px;">Court hours: 6:00 AM - 7:00 PM</p>
                 <div class="form-group"><label>Activity</label><select id="court-activity"><option value="Basketball">Basketball</option><option value="Volleyball">Volleyball</option><option value="Barangay Event">Barangay Event</option><option value="Practice">Practice</option><option value="Other">Other</option></select></div>
             </div>
-            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('courtModal')">Cancel</button><button class="btn btn-accent" onclick="bookCourt()">Confirm Booking</button></div>
+                <div class="modal-footer" style="justify-content: space-between;">
+                    <button id="btn-delete-booking" class="btn btn-danger" onclick="deleteCurrentBooking()" style="display:none;">🗑️ Delete</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-outline" onclick="closeModal('courtModal')">Cancel</button>
+                        <button class="btn btn-accent" onclick="bookCourt()">✅ Confirm Booking</button>
+                    </div>
+                </div>
         </div>
     </div>
 
