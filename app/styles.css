@@ -500,3 +500,27 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
     align-items: center;
     gap: 6px;
 }
+
+.announcement-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Category Colors */
+.cat-general { background: #e8eaf6; color: #283593; }
+.cat-infrastructure { background: #ffeaa7; color: #b7950b; }
+.cat-utilities { background: #d5f5e3; color: #1e8449; }
+.cat-sanitation { background: #e0f2f1; color: #00695c; }
+.cat-events { background: #fdebd0; color: #d68910; }
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .announcements-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .announcement-card {
+        padding: 22px;
+    }
+}
