@@ -822,3 +822,149 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
         order: -1;
     }
 }
+/* ==================== COURT CALENDAR FIX ==================== */
+.court-main {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1.5px solid var(--border);
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.current-month {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.calendar-nav button {
+    background: var(--bg);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--primary);
+    transition: 0.2s;
+}
+
+.calendar-nav button:hover {
+    background: #e2e8f0;
+}
+
+/* The Grid Layout for Days */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr); /* 7 Columns for Sun-Sat */
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.day-header {
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-light);
+    font-size: 12px;
+    padding: 8px 0;
+    text-transform: uppercase;
+}
+
+.calendar-day {
+    min-height: 100px;
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.calendar-day:hover {
+    border-color: var(--primary-light);
+    background: #f8fafc;
+}
+
+.calendar-day.today {
+    border: 2px solid #f59e0b;
+    background-color: #fffbeb;
+}
+
+.calendar-day.selected {
+    border-color: var(--primary);
+    background: #f0f9ff;
+}
+
+.day-number {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.grid-bookings {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    max-height: 120px;
+}
+
+.grid-booking {
+    font-size: 10px;
+    background: #f1f5f9;
+    padding: 3px 5px;
+    border-radius: 4px;
+    border-left: 2px solid var(--primary);
+    line-height: 1.2;
+}
+
+.grid-booking.admin {
+    background: #fff7ed;
+    border-left-color: var(--accent);
+}
+
+.grid-time {
+    font-weight: 700;
+    color: var(--text);
+    display: block;
+}
+
+.grid-name {
+    color: var(--text-light);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bottom-actions {
+    text-align: right;
+    margin-top: 20px;
+}
+
+/* Mobile Responsive for Calendar */
+@media (max-width: 768px) {
+    .calendar-grid {
+        gap: 4px;
+    }
+    .calendar-day {
+        min-height: 85px;
+        padding: 4px;
+    }
+    .day-number {
+        font-size: 13px;
+    }
+    .grid-bookings {
+        display: none; /* Hide bookings on small screens to save space */
+    }
+}
