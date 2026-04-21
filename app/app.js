@@ -14,6 +14,7 @@ try {
     firebase.initializeApp(firebaseConfig);
 } catch (e) {
     console.error("Firebase Init Error:", e);
+    alert("Firebase Configuration Error. Check console.");
 }
 
 const auth = firebase.auth();
@@ -23,9 +24,7 @@ const db = firebase.firestore();
 let currentUser = null;
 let userRole = 'resident';
 let mapInstance = null;
-let currentMonth = new Date();
-let selectedDate = new Date();
-let allBookings = [];
+let accountDropdownOpen = false;
 
 // Detect Current Page
 const currentPage = window.location.pathname.split('/').pop() || 'index.html';
@@ -45,28 +44,43 @@ const categoryConfig = {
 auth.onAuthStateChanged(async (user) => {
     const isLoginPage = currentPage === 'login.html';
     const authOverlay = document.getElementById('auth-overlay');
-    
+    const appWrapper = document.getElementById('app-wrapper');
+
     if (user) {
         currentUser = user;
+
+        // If logged in but on login page, redirect to dashboard
         if (isLoginPage) {
             window.location.href = 'index.html';
             return;
         }
+
         try {
             await loadUserProfile();
+            
+            // Hide Auth, Show App
             if (authOverlay) authOverlay.style.display = 'none';
+            if (appWrapper) appWrapper.style.display = 'block';
+            
+            // Initialize Page Data
             initializeApp();
         } catch (error) {
             console.error("Init Error:", error);
             if (authOverlay) authOverlay.style.display = 'none';
+            if (appWrapper) appWrapper.style.display = 'block';
         }
     } else {
         currentUser = null;
+        
+        // If NOT logged in and NOT on login page, redirect to login
         if (!isLoginPage) {
             window.location.href = 'login.html';
             return;
         }
+        
+        // Show Auth Overlay if on login page
         if (authOverlay) authOverlay.style.display = 'flex';
+        if (appWrapper) appWrapper.style.display = 'none';
     }
 });
 
@@ -153,7 +167,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ==================== PROFILE DROPDOWN ====================
+// ==================== DROPDOWN ====================
 window.toggleProfileDropdown = function() {
     const dropdown = document.getElementById('profileDropdown');
     const trigger = document.querySelector('.user-profile-trigger');
@@ -181,39 +195,23 @@ async function handleLogout() {
 async function updateStats() {
     if (!document.getElementById('stat-residents')) return;
     try {
-        // Fetch Residents
         const resSnap = await db.collection('profiles').get();
-        
-        // Fetch Complaints (Client-side filtering to avoid index errors)
         const compSnap = await db.collection('complaints').get();
         let activeComplaints = 0;
         compSnap.forEach(doc => {
-            if (doc.data().status !== 'resolved') {
-                activeComplaints++;
-            }
+            if (doc.data().status !== 'resolved') activeComplaints++;
         });
-
-        // Fetch Summons
-        const sumSnap = await db.collection('summons').where('status', '==', 'confirmed').get();
         
-        // Fetch Court Bookings for Today
+        const sumSnap = await db.collection('summons').where('status', '==', 'confirmed').get();
         const today = new Date().toISOString().split('T')[0];
         const courtSnap = await db.collection('courtBookings').where('date', '==', today).get();
         
-        // Update UI
-        const setStat = (id, val) => { 
-            const el = document.getElementById(id); 
-            if(el) el.textContent = val; 
-        };
-        
+        const setStat = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
         setStat('stat-residents', resSnap.size);
         setStat('stat-complaints', activeComplaints);
         setStat('stat-summons', sumSnap.size);
         setStat('stat-court', courtSnap.size);
-        
-    } catch (e) { 
-        console.error("Stats Error:", e); 
-    }
+    } catch (e) { console.error(e); }
 }
 
 async function loadRecentComplaints() {
@@ -235,12 +233,10 @@ async function loadRecentCourtBookings() {
     try {
         const snap = await db.collection('courtBookings').orderBy('createdAt', 'desc').limit(5).get();
         const bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).slice(0, 5);
-        
         if (bookings.length === 0) {
             container.innerHTML = '<p style="text-align:center;color:#7f8c8d;padding:20px;">No recent bookings.</p>';
             return;
         }
-        
         container.innerHTML = bookings.map(b => {
             const time = (b.startTime && b.endTime) ? `${formatTime(b.startTime)} - ${formatTime(b.endTime)}` : 'All Day';
             return `
@@ -273,115 +269,40 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     try {
         const snap = await db.collection('complaints').orderBy('createdAt', 'desc').get();
         let complaints = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
         if (filter !== 'all') complaints = complaints.filter(c => c.status === filter);
-        
+
         if (complaints.length === 0) { 
             container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No complaints found.</p>'; 
             return; 
         }
-        
+
         container.innerHTML = complaints.map(c => `
             <div class="complaint-item">
                 <div class="complaint-header">
-                    <span class="complaint-category ${categoryConfig[c.category]?.class || 'cat-other'}">
-                        ${categoryConfig[c.category]?.label || '📌 Other'}
-                    </span>
+                    <span class="complaint-category ${categoryConfig[c.category]?.class||'cat-other'}">${categoryConfig[c.category]?.label||'📌 Other'}</span>
                     ${userRole === 'admin' ? `
-                        <div class="status-controls" data-id="${c.id}" style="display:flex; gap:8px; align-items:center;">
-                            <select class="status-dropdown" id="status-select-${c.id}">
-                                <option value="pending" ${c.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
-                                <option value="progress" ${c.status === 'progress' ? 'selected' : ''}>🔄 In Progress</option>
-                                <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>✅ Resolved</option>
-                            </select>
-                            <button class="btn btn-sm btn-primary" onclick="saveComplaintStatus('${c.id}')">💾 Save</button>
-                        </div>
-                    ` : `
-                        <span class="status-badge status-${c.status || 'pending'}">
-                            <span class="status-dot"></span> ${c.status === 'progress' ? 'In Progress' : (c.status === 'resolved' ? 'Resolved' : 'Pending')}
-                        </span>
-                    `}
+                        <select class="status-dropdown" onchange="updateComplaintStatus('${c.id}', this.value)">
+                            <option value="pending" ${c.status==='pending'?'selected':''}>⏳ Pending</option>
+                            <option value="progress" ${c.status==='progress'?'selected':''}>🔄 Progress</option>
+                            <option value="resolved" ${c.status==='resolved'?'selected':''}>✅ Resolved</option>
+                        </select>
+                    ` : `<span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status||'Pending'}</span>`}
                 </div>
                 <div class="complaint-title">${escapeHtml(c.title)}</div>
                 <div class="complaint-desc">${escapeHtml(c.description)}</div>
-                <div class="complaint-meta">
-                    <span>👤 ${escapeHtml(c.userName)}</span>
-                    <span>📍 ${escapeHtml(c.purok)}</span>
-                    <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
-                </div>
+                <div class="complaint-meta"><span>👤 ${escapeHtml(c.userName)}</span><span>📍 ${escapeHtml(c.purok)}</span></div>
             </div>
         `).join('');
-    } catch (e) { 
-        console.error(e);
-        container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:20px;">Error loading complaints.</p>'; 
-    }
+    } catch (e) { container.innerHTML = '<p>Error loading complaints.</p>'; }
 }
 
-async function saveComplaintStatus(id) {
-    if (userRole !== 'admin') {
-        showToast('Admin access required.', 'warning');
-        return;
-    }
-    
-    const select = document.getElementById(`status-select-${id}`);
-    const btn = document.querySelector(`.status-controls[data-id="${id}"] .btn`);
-    const newStatus = select.value;
-    
-    if (!newStatus) {
-        showToast('Please select a status.', 'warning');
-        return;
-    }
-    
-    // Loading state
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '⏳ Saving...';
-    btn.disabled = true;
-    
-    try {
-        await db.collection('complaints').doc(id).update({
-            status: newStatus,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        const statusLabel = newStatus === 'progress' ? 'In Progress' : newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
-        showToast(`Status updated to ${statusLabel}`, 'success');
-        
-        // Refresh the list to show updated badges for everyone
-        renderComplaints();
-    } catch (error) {
-        console.error("Update Error:", error);
-        showToast('Failed: ' + error.message, 'danger');
-    } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }
-}
-
-async function openEditComplaintModal(id) {
+async function updateComplaintStatus(id, status) {
     if (userRole !== 'admin') return;
     try {
-        const doc = await db.collection('complaints').doc(id).get();
-        if (doc.exists) {
-            const data = doc.data();
-            document.getElementById('complaint-edit-id').value = id;
-            document.getElementById('complaint-category').value = data.category;
-            document.getElementById('complaint-title').value = data.title;
-            document.getElementById('complaint-desc').value = data.description;
-            document.getElementById('complaint-purok').value = data.purok;
-            document.getElementById('complaint-modal-title').textContent = '✏️ Edit Complaint';
-            openModal('complaintModal');
-        }
-    } catch (e) { showToast('Error loading complaint', 'danger'); }
-}
-
-async function deleteComplaint(id) {
-    if (userRole !== 'admin') return;
-    if (!confirm('Are you sure you want to delete this complaint?')) return;
-    try {
-        await db.collection('complaints').doc(id).delete();
-        showToast('Complaint deleted', 'success');
+        await db.collection('complaints').doc(id).update({ status });
+        showToast(`Marked as ${status}`, 'success');
         renderComplaints();
-    } catch (e) { showToast('Failed to delete', 'danger'); }
+    } catch (e) { showToast('Update failed.', 'danger'); }
 }
 
 async function submitComplaint() {
@@ -389,25 +310,16 @@ async function submitComplaint() {
     const title = document.getElementById('complaint-title')?.value.trim();
     const desc = document.getElementById('complaint-desc')?.value.trim();
     const purok = document.getElementById('complaint-purok')?.value;
-    const editId = document.getElementById('complaint-edit-id')?.value;
-
     if (!category || !title || !desc || !purok) { showToast('Fill all fields.', 'warning'); return; }
 
     try {
-        const data = { category, title, description: desc, purok };
-        if (editId) {
-            await db.collection('complaints').doc(editId).update({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-            showToast('Complaint updated!', 'success');
-        } else {
-            await db.collection('complaints').add({ ...data, userId: currentUser.uid, userName: currentUser.email, status: 'pending', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-            showToast('Complaint filed!', 'success');
-        }
-        closeModal('complaintModal');
-        renderComplaints();
-        document.getElementById('complaint-edit-id').value = '';
-        ['complaint-category', 'complaint-title', 'complaint-desc', 'complaint-purok'].forEach(id => { 
-            const el = document.getElementById(id); if(el) el.value = ''; 
+        await db.collection('complaints').add({
+            userId: currentUser.uid, userName: currentUser.email, category, title, description: desc, purok, status: 'pending',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        closeModal('complaintModal');
+        showToast('Complaint filed!', 'success');
+        if (currentPage === 'complaints.html') renderComplaints();
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
@@ -451,55 +363,13 @@ async function renderSummons() {
         const snap = await db.collection('summons').orderBy('date', 'asc').get();
         const summons = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if (summons.length === 0) { container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No summons.</p>'; return; }
-        
         container.innerHTML = summons.map(s => `
             <div class="summons-card">
-                <div class="summons-info">
-                    <h4>${escapeHtml(s.caseTitle)}</h4>
-                    <p>${escapeHtml(s.complainantName)} vs ${escapeHtml(s.respondentName)}</p>
-                </div>
-                <div class="summons-date">
-                    <div class="date">${s.date}</div>
-                    <div class="time">${s.time}</div>
-                    ${userRole === 'admin' ? `
-                    <div style="display:flex; gap:6px; margin-top:6px;">
-                        <button class="btn btn-sm btn-outline" onclick="openEditSummonsModal('${s.id}')">✏️</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteSummons('${s.id}')">🗑️</button>
-                    </div>
-                    ` : `<span class="status-badge status-confirmed"><span class="status-dot"></span> Confirmed</span>`}
-                </div>
+                <div class="summons-info"><h4>${escapeHtml(s.caseTitle)}</h4><p>${escapeHtml(s.complainantName)} vs ${escapeHtml(s.respondentName)}</p></div>
+                <div class="summons-date"><div class="date">${s.date}</div><div class="time">${s.time}</div></div>
             </div>
         `).join('');
     } catch (e) { container.innerHTML = '<p>Error.</p>'; }
-}
-
-async function openEditSummonsModal(id) {
-    if (userRole !== 'admin') return;
-    try {
-        const doc = await db.collection('summons').doc(id).get();
-        if (doc.exists) {
-            const data = doc.data();
-            document.getElementById('summons-edit-id').value = id;
-            document.getElementById('summons-complainant').value = data.complainantName;
-            document.getElementById('summons-respondent').value = data.respondentName;
-            document.getElementById('summons-case').value = data.caseTitle;
-            document.getElementById('summons-date').value = data.date;
-            document.getElementById('summons-time').value = data.time;
-            document.getElementById('summons-location').value = data.location;
-            document.getElementById('summons-modal-title').textContent = '✏️ Edit Summons';
-            openModal('summonsModal');
-        }
-    } catch (e) { showToast('Error loading summons', 'danger'); }
-}
-
-async function deleteSummons(id) {
-    if (userRole !== 'admin') return;
-    if (!confirm('Delete this summons?')) return;
-    try {
-        await db.collection('summons').doc(id).delete();
-        showToast('Summons deleted', 'success');
-        renderSummons();
-    } catch (e) { showToast('Failed to delete', 'danger'); }
 }
 
 async function addSummons() {
@@ -509,26 +379,20 @@ async function addSummons() {
     const d = document.getElementById('summons-date')?.value;
     const t = document.getElementById('summons-time')?.value;
     const l = document.getElementById('summons-location')?.value;
-    const editId = document.getElementById('summons-edit-id')?.value;
-    
     if (!c || !r || !caseT || !d || !t) { showToast('Fill all fields.', 'warning'); return; }
-
     try {
-        const data = { complainantName: c, respondentName: r, caseTitle: caseT, date: d, time: t, location: l };
-        if (editId) {
-            await db.collection('summons').doc(editId).update({ ...data, status: 'confirmed' });
-            showToast('Summons updated!', 'success');
-        } else {
-            await db.collection('summons').add({ ...data, status: 'confirmed', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-            showToast('Summons scheduled!', 'success');
-        }
+        await db.collection('summons').add({ complainantName: c, respondentName: r, caseTitle: caseT, date: d, time: t, location: l, status: 'confirmed', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         closeModal('summonsModal');
+        showToast('Summons scheduled!', 'success');
         renderSummons();
-        document.getElementById('summons-edit-id').value = '';
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
 // ==================== COURT CALENDAR ====================
+let currentMonth = new Date();
+let selectedDate = new Date();
+let allBookings = [];
+
 function getLocalDateString(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -537,19 +401,13 @@ function getLocalDateString(dateObj) {
 }
 
 async function initCalendar(resetDate = false) {
-    if (resetDate) {
-        currentMonth = new Date();
-        selectedDate = new Date();
-    }
-    renderCalendarHeader();
-    await fetchMonthBookings();
-    renderCalendarGrid();
+    if (resetDate) { currentMonth = new Date(); selectedDate = new Date(); }
+    renderCalendarHeader(); await fetchMonthBookings(); renderCalendarGrid();
 }
 
 function renderCalendarHeader() {
-    const options = { month: 'long', year: 'numeric' };
     const el = document.getElementById('current-month');
-    if(el) el.textContent = currentMonth.toLocaleDateString('en-US', options);
+    if(el) el.textContent = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
 async function fetchMonthBookings() {
@@ -560,10 +418,7 @@ async function fetchMonthBookings() {
     try {
         const snapshot = await db.collection('courtBookings').where('date', '>=', startOfMonth).where('date', '<=', endOfMonth).get();
         allBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (error) {
-        console.warn("Fetch error", error);
-        allBookings = [];
-    }
+    } catch (error) { allBookings = []; }
 }
 
 function renderCalendarGrid() {
@@ -580,99 +435,34 @@ function renderCalendarGrid() {
     const todayStr = getLocalDateString(new Date());
     const selectedStr = getLocalDateString(selectedDate);
     
-    for (let i = 0; i < firstDayOfMonth; i++) {
-        const emptyCell = document.createElement('div');
-        grid.appendChild(emptyCell);
-    }
+    for (let i = 0; i < firstDayOfMonth; i++) grid.appendChild(document.createElement('div'));
     
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayBookings = allBookings.filter(b => b.date === dateStr);
-        const isToday = (dateStr === todayStr);
-        const isSelected = (dateStr === selectedStr);
-        
         const cell = document.createElement('div');
-        cell.className = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
-        cell.setAttribute('data-count', dayBookings.length);
-        cell.onclick = () => {
-            selectedDate = new Date(year, month, day);
-            renderCalendarGrid(); 
-        };
+        cell.className = `calendar-day ${dateStr === todayStr ? 'today' : ''} ${dateStr === selectedStr ? 'selected' : ''}`;
+        cell.onclick = () => { selectedDate = new Date(year, month, day); renderCalendarGrid(); };
         
         let bookingsHtml = '';
         if (dayBookings.length > 0) {
-            dayBookings.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
             bookingsHtml = '<div class="grid-bookings">';
             dayBookings.forEach(b => {
                 const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
-                const isAdmin = b.isAdminBooking;
-                const clickAction = userRole === 'admin' ? `onclick="openEditBookingModal('${b.id}')"` : '';
-                bookingsHtml += `<div class="grid-booking ${isAdmin ? 'admin' : ''}" ${clickAction}>
-                    <div class="grid-time">${time}</div>
-                    <div class="grid-name">${escapeHtml(b.bookerName)}</div>
-                </div>`;
+                bookingsHtml += `<div class="grid-booking ${b.isAdminBooking ? 'admin' : ''}"><div class="grid-time">${time}</div><div class="grid-name">${escapeHtml(b.bookerName)}</div></div>`;
             });
             bookingsHtml += '</div>';
         }
-        
         cell.innerHTML = `<div class="day-top"><div class="day-number">${day}</div></div>${bookingsHtml}`;
         grid.appendChild(cell);
     }
 }
 
-function changeMonth(delta) {
-    currentMonth.setMonth(currentMonth.getMonth() + delta);
-    initCalendar(false);
-}
+function changeMonth(delta) { currentMonth.setMonth(currentMonth.getMonth() + delta); initCalendar(false); }
 
 function openBookingModal() {
-    document.getElementById('court-booking-edit-id').value = '';
     document.getElementById('court-date').value = getLocalDateString(selectedDate);
-    document.getElementById('court-booker').value = '';
-    document.getElementById('court-start-time').value = '';
-    document.getElementById('court-end-time').value = '';
-    document.getElementById('court-activity').value = 'Basketball';
-    document.getElementById('court-modal-title').textContent = '📅 Book Court Slot';
-    document.getElementById('btn-delete-booking').style.display = 'none';
     openModal('courtModal');
-}
-
-async function openEditBookingModal(id) {
-    if (userRole !== 'admin') return;
-    try {
-        const doc = await db.collection('courtBookings').doc(id).get();
-        if (doc.exists) {
-            const data = doc.data();
-            document.getElementById('court-booking-edit-id').value = id;
-            document.getElementById('court-booker').value = data.bookerName;
-            document.getElementById('court-date').value = data.date;
-            document.getElementById('court-start-time').value = data.startTime;
-            document.getElementById('court-end-time').value = data.endTime;
-            document.getElementById('court-activity').value = data.activity;
-            document.getElementById('court-modal-title').textContent = '✏️ Edit Booking';
-            document.getElementById('btn-delete-booking').style.display = 'inline-flex';
-            openModal('courtModal');
-        }
-    } catch (e) { showToast('Error loading booking', 'danger'); }
-}
-
-async function deleteCurrentBooking() {
-    const editId = document.getElementById('court-booking-edit-id')?.value;
-    if (!editId) { showToast('No booking selected to delete.', 'warning'); return; }
-    if (!confirm('Are you sure you want to delete this booking?')) return;
-    try {
-        await db.collection('courtBookings').doc(editId).delete();
-        showToast('Booking deleted', 'success');
-        closeModal('courtModal');
-        await fetchMonthBookings();
-        renderCalendarGrid();
-    } catch (e) { showToast('Failed to delete', 'danger'); }
-}
-
-function toMinutes(timeStr) {
-    if (!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    return (h * 60) + m;
 }
 
 async function bookCourt() {
@@ -681,44 +471,19 @@ async function bookCourt() {
     const start = document.getElementById('court-start-time')?.value;
     const end = document.getElementById('court-end-time')?.value;
     const activity = document.getElementById('court-activity')?.value;
-    const editId = document.getElementById('court-booking-edit-id')?.value;
-
+    
     if (!name || !date || !start || !end) { showToast('Fill all fields.', 'warning'); return; }
     if (start >= end) { showToast('End time must be after start.', 'warning'); return; }
     
-    const startH = parseInt(start.split(':')[0]);
-    const endH = parseInt(end.split(':')[0]);
-    if (startH < 6 || endH > 19) { showToast('Court hours: 6 AM - 7 PM', 'warning'); return; }
-
     try {
-        if (!editId) {
-            const hasOverlap = allBookings.some(b => {
-                if (b.date !== date) return false;
-                return (toMinutes(start) < toMinutes(b.endTime) && toMinutes(end) > toMinutes(b.startTime));
-            });
-            if (hasOverlap) { showToast('Time slot overlaps!', 'danger'); return; }
-        }
-
-        if (editId) {
-            await db.collection('courtBookings').doc(editId).update({
-                bookerName: name, startTime: start, endTime: end, activity,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            showToast('Booking updated!', 'success');
-        } else {
-            await db.collection('courtBookings').add({
-                userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity,
-                isAdminBooking: userRole === 'admin',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            showToast('Booking confirmed!', 'success');
-        }
-
+        await db.collection('courtBookings').add({
+            userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity,
+            isAdminBooking: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
         closeModal('courtModal');
+        showToast('Booking Confirmed!', 'success');
         await fetchMonthBookings();
         renderCalendarGrid();
-        document.getElementById('court-booking-edit-id').value = '';
-        document.getElementById('court-booker').value = '';
     } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
 }
 
@@ -730,89 +495,35 @@ async function loadAnnouncements() {
     try {
         const snap = await db.collection('announcements').orderBy('createdAt', 'desc').get();
         const announcements = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
         if (announcements.length === 0) { container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No announcements.</p>'; return; }
         
         container.innerHTML = announcements.map(a => `
             <div class="announcement-card">
                 <div class="announcement-header">
-                    <div>
-                        <span class="complaint-category cat-${a.category || 'general'}">${categoryConfig[a.category]?.label || '📢 General'}</span>
-                        <div class="announcement-title">${escapeHtml(a.title)}</div>
-                    </div>
-                    ${userRole === 'admin' ? `
-                        <div class="announcement-actions">
-                            <button class="btn btn-sm btn-outline" onclick="editAnnouncement('${a.id}')">✏️ Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${a.id}')">🗑️ Delete</button>
-                        </div>
-                    ` : ''}
+                    <div><span class="complaint-category cat-${a.category||'general'}">${categoryConfig[a.category]?.label||'📢 General'}</span>
+                    <div class="announcement-title">${escapeHtml(a.title)}</div></div>
                 </div>
                 <div class="announcement-content">${escapeHtml(a.content)}</div>
-                <div class="announcement-meta">
-                    <span>📅 ${a.createdAt ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
-                    <span>👤 ${escapeHtml(a.createdBy || 'Admin')}</span>
-                </div>
+                <div class="announcement-meta"><span>📅 ${a.createdAt ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span></div>
             </div>
         `).join('');
-    } catch (error) { container.innerHTML = '<p>Error loading announcements.</p>'; }
-}
-
-function openAnnouncementModal(editId = null) {
-    const titleEl = document.getElementById('announcement-modal-title');
-    if(titleEl) titleEl.textContent = editId ? '✏️ Edit Announcement' : '📢 Add Announcement';
-    const editIdEl = document.getElementById('announcement-edit-id');
-    if(editIdEl) editIdEl.value = editId || '';
-    
-    if (editId) {
-        db.collection('announcements').doc(editId).get().then(doc => {
-            if (doc.exists) {
-                const data = doc.data();
-                const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
-                setVal('announcement-title', data.title);
-                setVal('announcement-category', data.category);
-                setVal('announcement-content', data.content);
-            }
-        });
-    } else {
-        ['announcement-title', 'announcement-content'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-        const catEl = document.getElementById('announcement-category'); if(catEl) catEl.value = 'general';
-    }
-    openModal('announcementModal');
+    } catch (e) { container.innerHTML = '<p>Error.</p>'; }
 }
 
 async function saveAnnouncement() {
     const title = document.getElementById('announcement-title')?.value.trim();
-    const category = document.getElementById('announcement-category')?.value;
     const content = document.getElementById('announcement-content')?.value.trim();
-    const editId = document.getElementById('announcement-edit-id')?.value;
-    
+    const category = document.getElementById('announcement-category')?.value;
     if (!title || !content) { showToast('Fill title and content.', 'warning'); return; }
-    
     try {
-        const data = { title, category, content, updatedBy: currentUser.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-        if (editId) {
-            await db.collection('announcements').doc(editId).update(data);
-            showToast('Updated!', 'success');
-        } else {
-            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-            data.createdBy = currentUser.email;
-            await db.collection('announcements').add(data);
-            showToast('Posted!', 'success');
-        }
+        await db.collection('announcements').add({
+            title, content, category, createdBy: currentUser.email,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
         closeModal('announcementModal');
+        showToast('Announcement Posted!', 'success');
         loadAnnouncements();
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
-}
-
-async function editAnnouncement(id) { openAnnouncementModal(id); }
-async function deleteAnnouncement(id) {
-    if (userRole !== 'admin') return;
-    if (!confirm('Delete?')) return;
-    try {
-        await db.collection('announcements').doc(id).delete();
-        showToast('Deleted.', 'success');
-        loadAnnouncements();
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
+    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
 // ==================== ACCOUNT PAGE ====================
@@ -834,68 +545,20 @@ async function loadAccountPage() {
             setVal('acc-last-name', data.lastName);
             setVal('acc-email', data.email);
             setVal('acc-purok', data.purok);
-            setVal('acc-phone', data.phone);
-            const setCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val !== false; };
-            setCheck('acc-notif-email', data.emailNotifications);
         }
-        await loadMyComplaints();
     } catch (e) { console.error(e); }
 }
 
 async function saveAccountProfile() {
     const fn = document.getElementById('acc-first-name')?.value.trim();
     const ln = document.getElementById('acc-last-name')?.value.trim();
-    const purok = document.getElementById('acc-purok')?.value;
-    const phone = document.getElementById('acc-phone')?.value.trim();
+    const pk = document.getElementById('acc-purok')?.value;
     if (!fn || !ln) { showToast('Name is required', 'warning'); return; }
     try {
-        await db.collection('profiles').doc(currentUser.uid).update({ firstName: fn, lastName: ln, purok, phone });
-        await currentUser.updateProfile({ displayName: `${fn} ${ln}` });
+        await db.collection('profiles').doc(currentUser.uid).update({ firstName: fn, lastName: ln, purok: pk });
         showToast('Profile updated!', 'success');
         loadUserProfile();
     } catch (e) { showToast('Error: ' + e.message, 'danger'); }
-}
-
-async function changeAccountPassword() {
-    const curr = document.getElementById('acc-current-pass')?.value;
-    const newP = document.getElementById('acc-new-pass')?.value;
-    const conf = document.getElementById('acc-confirm-pass')?.value;
-    if (!curr || !newP || !conf) { showToast('Fill all password fields', 'warning'); return; }
-    if (newP.length < 6) { showToast('Min 6 characters', 'warning'); return; }
-    if (newP !== conf) { showToast('Passwords do not match', 'danger'); return; }
-    try {
-        const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, curr);
-        await currentUser.reauthenticateWithCredential(cred);
-        await currentUser.updatePassword(newP);
-        showToast('Password updated!', 'success');
-        ['acc-current-pass','acc-new-pass','acc-confirm-pass'].forEach(id => document.getElementById(id).value = '');
-    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
-}
-
-async function saveNotifPrefs() {
-    try {
-        await db.collection('profiles').doc(currentUser.uid).update({
-            emailNotifications: document.getElementById('acc-notif-email')?.checked
-        });
-        showToast('Preferences saved!', 'success');
-    } catch (e) { showToast('Error saving', 'danger'); }
-}
-
-async function loadMyComplaints() {
-    const container = document.getElementById('my-complaints-list');
-    if (!container) return;
-    try {
-        const snap = await db.collection('complaints').where('userId', '==', currentUser.uid).orderBy('createdAt', 'desc').get();
-        if (snap.empty) {
-            container.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:40px;">You haven\'t filed any complaints yet.</p>';
-            return;
-        }
-        container.innerHTML = snap.docs.map(doc => {
-            const c = doc.data();
-            const cls = c.status === 'resolved' ? 'resolved' : (c.status === 'progress' ? 'progress' : '');
-            return `<div class="complaint-card ${cls}"><div class="complaint-header"><h4>${escapeHtml(c.title)}</h4><span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status||'Pending'}</span></div><div class="complaint-desc">${escapeHtml(c.description)}</div><div class="complaint-meta"><span>📍 ${escapeHtml(c.purok)}</span><span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span></div></div>`;
-        }).join('');
-    } catch (e) { container.innerHTML = '<p>Error loading complaints.</p>'; }
 }
 
 // ==================== MAP ====================
@@ -906,7 +569,7 @@ function initMap() {
     L.marker([13.4205, 123.4194]).addTo(mapInstance).bindPopup('Barangay Hall');
 }
 
-// ==================== LOGIN/SIGNUP ====================
+// ==================== LOGIN / SIGNUP (FIXED) ====================
 window.handleLogin = async () => {
     const e = document.getElementById('login-email')?.value;
     const p = document.getElementById('login-password')?.value;
@@ -914,59 +577,62 @@ window.handleLogin = async () => {
     try { await auth.signInWithEmailAndPassword(e,p); } catch(err) { alert(err.message); }
 };
 
-// FIXED SIGNUP FUNCTION - This saves to Firestore
+// FIXED SIGNUP FUNCTION
 window.handleSignup = async () => {
-    // Get form values
-    const email = document.getElementById('signup-email')?.value;
-    const password = document.getElementById('signup-password')?.value;
-    const firstName = document.getElementById('signup-fname')?.value;
-    const lastName = document.getElementById('signup-lname')?.value;
-    const purok = document.getElementById('signup-purok')?.value;
+    // 1. Get values from HTML
+    const emailEl = document.getElementById('signup-email');
+    const passEl = document.getElementById('signup-password');
+    const fnameEl = document.getElementById('signup-fname');
+    const lnameEl = document.getElementById('signup-lname');
+    const purokEl = document.getElementById('signup-purok');
     
+    // Safety check
+    if (!emailEl || !passEl || !fnameEl || !lnameEl || !purokEl) {
+        console.error("Signup elements not found.");
+        return;
+    }
+
+    const email = emailEl.value.trim();
+    const pass = passEl.value;
+    const firstName = fnameEl.value.trim();
+    const lastName = lnameEl.value.trim();
+    const purok = purokEl.value;
+
     // Validation
-    if (!email || !password || !firstName || !lastName) {
-        alert('Please fill in all required fields');
+    if (!email || !pass || !firstName || !lastName || !purok) {
+        alert('Please fill in all fields.');
         return;
     }
-    
-    if (password.length < 6) {
-        alert('Password must be at least 6 characters');
-        return;
-    }
-    
+
     try {
-        // 1. Create user in Firebase Authentication
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+        // 2. Create User in Firebase Authentication
+        const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
         const user = userCredential.user;
-        
-        // 2. Save user profile to Firestore
+
+        // 3. SAVE PROFILE TO FIRESTORE DATABASE
         await db.collection('profiles').doc(user.uid).set({
             firstName: firstName,
             lastName: lastName,
             email: email,
-            purok: purok || '',
-            role: 'resident',  // Default role
-            phone: '',
+            purok: purok,
+            role: 'resident', // Default role
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+
+        alert('Account created successfully! Please log in.');
         
-        alert('Account created successfully! Please login.');
+        // Switch back to login form
+        toggleAuthMode('login');
         
-        // Switch to login form
-        const loginForm = document.getElementById('login-form');
-        const signupForm = document.getElementById('signup-form');
-        if (loginForm) loginForm.style.display = 'block';
-        if (signupForm) signupForm.style.display = 'none';
-        
-        // Clear form
-        if (document.getElementById('signup-email')) document.getElementById('signup-email').value = '';
-        if (document.getElementById('signup-password')) document.getElementById('signup-password').value = '';
-        if (document.getElementById('signup-fname')) document.getElementById('signup-fname').value = '';
-        if (document.getElementById('signup-lname')) document.getElementById('signup-lname').value = '';
-        if (document.getElementById('signup-purok')) document.getElementById('signup-purok').value = '';
-        
+        // Clear inputs
+        emailEl.value = '';
+        passEl.value = '';
+        fnameEl.value = '';
+        lnameEl.value = '';
+        purokEl.value = '';
+
     } catch (error) {
-        console.error('Signup Error:', error);
+        console.error("Signup Error:", error);
         alert('Error: ' + error.message);
     }
 };
@@ -983,30 +649,17 @@ window.initCalendar = initCalendar;
 window.changeMonth = changeMonth;
 window.openBookingModal = openBookingModal;
 window.bookCourt = bookCourt;
-window.adminClearDay = adminClearDay;
-window.openEditBookingModal = openEditBookingModal;
-window.deleteCurrentBooking = deleteCurrentBooking;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.toggleSidebar = toggleSidebar;
 window.handleLogout = handleLogout;
-window.saveProfileChanges = saveAccountProfile;
-window.switchAccountTab = switchAccountTab;
+window.toggleProfileDropdown = window.toggleProfileDropdown;
 window.saveAccountProfile = saveAccountProfile;
-window.changeAccountPassword = changeAccountPassword;
-window.saveNotifPrefs = saveNotifPrefs;
-window.loadAccountPage = loadAccountPage;
+window.switchAccountTab = switchAccountTab;
 window.submitComplaint = submitComplaint;
 window.filterComplaints = filterComplaints;
-window.saveComplaintStatus = saveComplaintStatus;
+window.updateComplaintStatus = updateComplaintStatus;
 window.renderResidents = renderResidents;
 window.addSummons = addSummons;
-window.openEditSummonsModal = openEditSummonsModal;
-window.deleteSummons = deleteSummons;
-window.openAnnouncementModal = openAnnouncementModal;
 window.saveAnnouncement = saveAnnouncement;
-window.editAnnouncement = editAnnouncement;
-window.deleteAnnouncement = deleteAnnouncement;
-window.loadAnnouncements = loadAnnouncements;
-window.openEditComplaintModal = openEditComplaintModal;
-window.deleteComplaint = deleteComplaint;
+window.loadAccountPage = loadAccountPage;
