@@ -475,7 +475,7 @@ function openSummonsModal() {
     openModal('summonsModal');
 }
 
-// ==================== COURT CALENDAR ====================
+// ==================== COURT CALENDAR & ADMIN FUNCTIONS ====================
 let currentMonth = new Date();
 let selectedDate = new Date();
 let allBookings = [];
@@ -488,8 +488,21 @@ function getLocalDateString(dateObj) {
 }
 
 async function initCalendar(resetDate = false) {
-    if (resetDate) { currentMonth = new Date(); selectedDate = new Date(); }
-    renderCalendarHeader(); await fetchMonthBookings(); renderCalendarGrid();
+    if (resetDate) {
+        currentMonth = new Date();
+        selectedDate = new Date();
+    }
+    
+    // Show/Hide Admin Sidebar
+    const adminSidebar = document.getElementById('admin-court-sidebar');
+    if (adminSidebar) {
+        adminSidebar.style.display = userRole === 'admin' ? 'block' : 'none';
+        if (userRole === 'admin') await loadAdminRecentBookings();
+    }
+
+    renderCalendarHeader();
+    await fetchMonthBookings();
+    renderCalendarGrid();
 }
 
 function renderCalendarHeader() {
@@ -502,15 +515,54 @@ async function fetchMonthBookings() {
     const month = currentMonth.getMonth();
     const startOfMonth = getLocalDateString(new Date(year, month, 1));
     const endOfMonth = getLocalDateString(new Date(year, month + 1, 0));
+    
     try {
-        const snapshot = await db.collection('courtBookings').where('date', '>=', startOfMonth).where('date', '<=', endOfMonth).get();
+        const snapshot = await db.collection('courtBookings')
+            .where('date', '>=', startOfMonth)
+            .where('date', '<=', endOfMonth)
+            .get();
         allBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (error) { allBookings = []; }
+    } catch (error) {
+        console.warn("Fetch error", error);
+        allBookings = [];
+    }
+}
+
+// Load last 10 bookings for Admin Sidebar
+async function loadAdminRecentBookings() {
+    const container = document.getElementById('admin-recent-bookings-list');
+    if (!container) return;
+    
+    try {
+        // Fetch latest 10 from entire collection
+        const snap = await db.collection('courtBookings').orderBy('createdAt', 'desc').limit(10).get();
+        const bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (bookings.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:#7f8c8d;font-size:13px;padding:20px;">No bookings found.</p>';
+            return;
+        }
+        
+        container.innerHTML = bookings.map(b => {
+            const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
+            return `
+                <div class="admin-booking-item" onclick="openEditBookingModal('${b.id}')">
+                    <div class="admin-booking-time">${time}</div>
+                    <div class="admin-booking-name">${escapeHtml(b.bookerName)}</div>
+                    <div class="admin-booking-activity">${escapeHtml(b.activity)} • ${b.date}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<p style="color:var(--danger);font-size:13px;">Error loading.</p>';
+    }
 }
 
 function renderCalendarGrid() {
     const grid = document.getElementById('calendar-grid');
     if(!grid) return;
+    
+    // Keep headers, remove days
     const headers = Array.from(grid.children).slice(0, 7);
     grid.innerHTML = '';
     headers.forEach(h => grid.appendChild(h));
@@ -519,59 +571,182 @@ function renderCalendarGrid() {
     const month = currentMonth.getMonth();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
     const todayStr = getLocalDateString(new Date());
     const selectedStr = getLocalDateString(selectedDate);
     
-    for (let i = 0; i < firstDayOfMonth; i++) grid.appendChild(document.createElement('div'));
+    // Empty cells
+    for (let i = 0; i < firstDayOfMonth; i++) {
+        grid.appendChild(document.createElement('div'));
+    }
     
+    // Days
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayBookings = allBookings.filter(b => b.date === dateStr);
+        
         const cell = document.createElement('div');
         cell.className = `calendar-day ${dateStr === todayStr ? 'today' : ''} ${dateStr === selectedStr ? 'selected' : ''}`;
-        cell.onclick = () => { selectedDate = new Date(year, month, day); renderCalendarGrid(); };
+        
+        // Click to select date
+        cell.onclick = () => {
+            selectedDate = new Date(year, month, day);
+            renderCalendarGrid();
+        };
         
         let bookingsHtml = '';
         if (dayBookings.length > 0) {
             bookingsHtml = '<div class="grid-bookings">';
             dayBookings.forEach(b => {
                 const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
-                bookingsHtml += `<div class="grid-booking ${b.isAdminBooking ? 'admin' : ''}"><div class="grid-time">${time}</div><div class="grid-name">${escapeHtml(b.bookerName)}</div></div>`;
+                // Admins can click booking in grid to edit
+                const clickAction = userRole === 'admin' ? `onclick="event.stopPropagation(); openEditBookingModal('${b.id}')"` : '';
+                bookingsHtml += `<div class="grid-booking ${b.isAdminBooking ? 'admin' : ''}" ${clickAction}>
+                    <div class="grid-time">${time}</div>
+                    <div class="grid-name">${escapeHtml(b.bookerName)}</div>
+                </div>`;
             });
             bookingsHtml += '</div>';
         }
+        
         cell.innerHTML = `<div class="day-top"><div class="day-number">${day}</div></div>${bookingsHtml}`;
         grid.appendChild(cell);
     }
 }
 
-function changeMonth(delta) { currentMonth.setMonth(currentMonth.getMonth() + delta); initCalendar(false); }
+function changeMonth(delta) {
+    currentMonth.setMonth(currentMonth.getMonth() + delta);
+    initCalendar(false);
+}
 
+// Open Modal for NEW Booking
 function openBookingModal() {
+    document.getElementById('court-booking-edit-id').value = '';
     document.getElementById('court-date').value = getLocalDateString(selectedDate);
+    document.getElementById('court-booker').value = '';
+    document.getElementById('court-start-time').value = '';
+    document.getElementById('court-end-time').value = '';
+    document.getElementById('court-activity').value = 'Basketball';
+    
+    document.getElementById('court-modal-title').textContent = '📅 Book Court Slot';
+    document.getElementById('btn-delete-booking').style.display = 'none';
+    
     openModal('courtModal');
 }
 
+// Open Modal for EDITING (Admin Only)
+async function openEditBookingModal(id) {
+    if (userRole !== 'admin') return;
+    
+    try {
+        const doc = await db.collection('courtBookings').doc(id).get();
+        if (doc.exists) {
+            const data = doc.data();
+            document.getElementById('court-booking-edit-id').value = id;
+            document.getElementById('court-booker').value = data.bookerName;
+            document.getElementById('court-date').value = data.date;
+            document.getElementById('court-start-time').value = data.startTime;
+            document.getElementById('court-end-time').value = data.endTime;
+            document.getElementById('court-activity').value = data.activity;
+            
+            document.getElementById('court-modal-title').textContent = '✏️ Edit Booking';
+            document.getElementById('btn-delete-booking').style.display = 'inline-flex'; // Show Delete Button
+            
+            openModal('courtModal');
+        }
+    } catch (e) {
+        showToast('Error loading booking', 'danger');
+    }
+}
+
+// DELETE CURRENT BOOKING
+async function deleteCurrentBooking() {
+    const editId = document.getElementById('court-booking-edit-id')?.value;
+    if (!editId) return;
+    
+    if (!confirm('Are you sure you want to delete this booking?')) return;
+    
+    try {
+        await db.collection('courtBookings').doc(editId).delete();
+        showToast('Booking deleted', 'success');
+        closeModal('courtModal');
+        await fetchMonthBookings();
+        renderCalendarGrid();
+        if (userRole === 'admin') await loadAdminRecentBookings();
+    } catch (e) {
+        showToast('Failed to delete', 'danger');
+    }
+}
+
+function toMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h * 60) + m;
+}
+
+// CONFIRM BOOKING (Handles Create & Update)
 async function bookCourt() {
     const name = document.getElementById('court-booker')?.value.trim();
     const date = document.getElementById('court-date')?.value;
     const start = document.getElementById('court-start-time')?.value;
     const end = document.getElementById('court-end-time')?.value;
     const activity = document.getElementById('court-activity')?.value;
-    
+    const editId = document.getElementById('court-booking-edit-id')?.value;
+
     if (!name || !date || !start || !end) { showToast('Fill all fields.', 'warning'); return; }
     if (start >= end) { showToast('End time must be after start.', 'warning'); return; }
     
+    const startH = parseInt(start.split(':')[0]);
+    const endH = parseInt(end.split(':')[0]);
+    if (startH < 6 || endH > 19) { showToast('Court hours: 6 AM - 7 PM', 'warning'); return; }
+
     try {
-        await db.collection('courtBookings').add({
-            userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity,
-            isAdminBooking: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        // Check Overlaps ONLY if creating NEW (not editing)
+        if (!editId) {
+            const hasOverlap = allBookings.some(b => {
+                if (b.date !== date) return false;
+                return (toMinutes(start) < toMinutes(b.endTime) && toMinutes(end) > toMinutes(b.startTime));
+            });
+            if (hasOverlap) { showToast('Time slot overlaps!', 'danger'); return; }
+        }
+
+        if (editId) {
+            // --- UPDATE EXISTING ---
+            await db.collection('courtBookings').doc(editId).update({
+                bookerName: name, 
+                startTime: start, 
+                endTime: end, 
+                activity,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showToast('Booking updated!', 'success');
+        } else {
+            // --- CREATE NEW ---
+            await db.collection('courtBookings').add({
+                userId: currentUser.uid, 
+                bookerName: name, 
+                date, 
+                startTime: start, 
+                endTime: end, 
+                activity,
+                isAdminBooking: userRole === 'admin',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showToast('Booking confirmed!', 'success');
+        }
+
         closeModal('courtModal');
-        showToast('Booking Confirmed!', 'success');
         await fetchMonthBookings();
         renderCalendarGrid();
-    } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
+        if (userRole === 'admin') await loadAdminRecentBookings();
+        
+        // Clear inputs
+        document.getElementById('court-booking-edit-id').value = '';
+        document.getElementById('court-booker').value = '';
+
+    } catch (error) { 
+        showToast('Failed: ' + error.message, 'danger'); 
+    }
 }
 
 // ==================== ANNOUNCEMENTS FUNCTIONS ====================
@@ -860,3 +1035,9 @@ window.saveSummons = saveSummons;
 window.editSummons = editSummons;
 window.deleteSummons = deleteSummons;
 window.openSummonsModal = openSummonsModal;
+window.initCalendar = initCalendar;
+window.changeMonth = changeMonth;
+window.openBookingModal = openBookingModal;
+window.bookCourt = bookCourt;
+window.openEditBookingModal = openEditBookingModal;
+window.deleteCurrentBooking = deleteCurrentBooking;
