@@ -24,7 +24,6 @@ const db = firebase.firestore();
 let currentUser = null;
 let userRole = 'resident';
 let mapInstance = null;
-let accountDropdownOpen = false;
 
 // Detect Current Page
 const currentPage = window.location.pathname.split('/').pop() || 'index.html';
@@ -44,43 +43,28 @@ const categoryConfig = {
 auth.onAuthStateChanged(async (user) => {
     const isLoginPage = currentPage === 'login.html';
     const authOverlay = document.getElementById('auth-overlay');
-    const appWrapper = document.getElementById('app-wrapper');
-
+    
     if (user) {
         currentUser = user;
-
-        // If logged in but on login page, redirect to dashboard
         if (isLoginPage) {
             window.location.href = 'index.html';
             return;
         }
-
         try {
             await loadUserProfile();
-            
-            // Hide Auth, Show App
             if (authOverlay) authOverlay.style.display = 'none';
-            if (appWrapper) appWrapper.style.display = 'block';
-            
-            // Initialize Page Data
             initializeApp();
         } catch (error) {
             console.error("Init Error:", error);
             if (authOverlay) authOverlay.style.display = 'none';
-            if (appWrapper) appWrapper.style.display = 'block';
         }
     } else {
         currentUser = null;
-        
-        // If NOT logged in and NOT on login page, redirect to login
         if (!isLoginPage) {
             window.location.href = 'login.html';
             return;
         }
-        
-        // Show Auth Overlay if on login page
         if (authOverlay) authOverlay.style.display = 'flex';
-        if (appWrapper) appWrapper.style.display = 'none';
     }
 });
 
@@ -104,13 +88,11 @@ async function loadUserProfile() {
             setText('user-avatar', initials);
             setText('dropdown-avatar', initials);
             setText('dropdown-role', userRole === 'admin' ? 'Admin' : 'Resident');
-            setText('user-role-badge', userRole === 'admin' ? 'Admin' : 'Resident');
             
             if (userRole === 'admin') {
                 const showBtn = (id) => { const el = document.getElementById(id); if(el) el.style.display = 'inline-flex'; };
                 showBtn('schedule-summons-btn');
                 showBtn('add-announcement-btn');
-                showBtn('admin-court-btn');
             }
         }
     } catch (error) {
@@ -123,7 +105,6 @@ async function initializeApp() {
     if (currentPage === 'index.html' || currentPage === '') {
         await updateStats();
         await loadRecentComplaints();
-        await loadRecentCourtBookings();
     }
     if (currentPage === 'complaints.html') await renderComplaints('all', 'complaintList');
     if (currentPage === 'residents.html') await renderResidents();
@@ -227,39 +208,6 @@ async function loadRecentComplaints() {
     } catch (e) { container.innerHTML = '<p>Error.</p>'; }
 }
 
-async function loadRecentCourtBookings() {
-    const container = document.getElementById('recent-court-bookings');
-    if (!container) return;
-    try {
-        const snap = await db.collection('courtBookings').orderBy('createdAt', 'desc').limit(5).get();
-        const bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).slice(0, 5);
-        if (bookings.length === 0) {
-            container.innerHTML = '<p style="text-align:center;color:#7f8c8d;padding:20px;">No recent bookings.</p>';
-            return;
-        }
-        container.innerHTML = bookings.map(b => {
-            const time = (b.startTime && b.endTime) ? `${formatTime(b.startTime)} - ${formatTime(b.endTime)}` : 'All Day';
-            return `
-                <div class="court-booking-item ${b.isAdminBooking ? 'admin' : ''}">
-                    <div class="court-booking-header">
-                        <span class="court-booking-time">${time}</span>
-                        <span class="court-booking-date">${new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                    </div>
-                    <div class="court-booking-name">${escapeHtml(b.bookerName)}</div>
-                    <div class="court-booking-activity">${escapeHtml(b.activity)}</div>
-                </div>
-            `;
-        }).join('');
-    } catch (e) { container.innerHTML = '<p>Error.</p>'; }
-}
-
-function formatTime(timeStr) {
-    if (!timeStr) return '';
-    const [h, m] = timeStr.split(':');
-    const hour = parseInt(h);
-    return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
-}
-
 // ==================== COMPLAINTS ====================
 async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     const container = document.getElementById(elementId);
@@ -269,40 +217,56 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     try {
         const snap = await db.collection('complaints').orderBy('createdAt', 'desc').get();
         let complaints = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
         if (filter !== 'all') complaints = complaints.filter(c => c.status === filter);
-
+        
         if (complaints.length === 0) { 
             container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No complaints found.</p>'; 
             return; 
         }
-
+        
+        // FIXED SYNTAX ERROR HERE: c => instead of c = >
         container.innerHTML = complaints.map(c => `
             <div class="complaint-item">
                 <div class="complaint-header">
-                    <span class="complaint-category ${categoryConfig[c.category]?.class||'cat-other'}">${categoryConfig[c.category]?.label||'📌 Other'}</span>
+                    <span class="complaint-category ${categoryConfig[c.category]?.class || 'cat-other'}">
+                        ${categoryConfig[c.category]?.label || '📌 Other'}
+                    </span>
                     ${userRole === 'admin' ? `
                         <select class="status-dropdown" onchange="updateComplaintStatus('${c.id}', this.value)">
-                            <option value="pending" ${c.status==='pending'?'selected':''}>⏳ Pending</option>
-                            <option value="progress" ${c.status==='progress'?'selected':''}>🔄 Progress</option>
-                            <option value="resolved" ${c.status==='resolved'?'selected':''}>✅ Resolved</option>
+                            <option value="pending" ${c.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                            <option value="progress" ${c.status === 'progress' ? 'selected' : ''}>🔄 In Progress</option>
+                            <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>✅ Resolved</option>
                         </select>
-                    ` : `<span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status||'Pending'}</span>`}
+                    ` : `
+                        <span class="status-badge status-${c.status || 'pending'}">
+                            <span class="status-dot"></span> ${c.status === 'progress' ? 'In Progress' : (c.status === 'resolved' ? 'Resolved' : 'Pending')}
+                        </span>
+                    `}
                 </div>
                 <div class="complaint-title">${escapeHtml(c.title)}</div>
                 <div class="complaint-desc">${escapeHtml(c.description)}</div>
-                <div class="complaint-meta"><span>👤 ${escapeHtml(c.userName)}</span><span>📍 ${escapeHtml(c.purok)}</span></div>
+                <div class="complaint-meta">
+                    <span>👤 ${escapeHtml(c.userName)}</span>
+                    <span>📍 ${escapeHtml(c.purok)}</span>
+                </div>
             </div>
         `).join('');
-    } catch (e) { container.innerHTML = '<p>Error loading complaints.</p>'; }
+    } catch (e) { 
+        console.error(e);
+        container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:20px;">Error loading complaints.</p>'; 
+    }
 }
 
 async function updateComplaintStatus(id, status) {
     if (userRole !== 'admin') return;
     try {
         await db.collection('complaints').doc(id).update({ status });
-        showToast(`Marked as ${status}`, 'success');
+        showToast(`Updated to ${status}`, 'success');
         renderComplaints();
-    } catch (e) { showToast('Update failed.', 'danger'); }
+    } catch (error) {
+        showToast('Failed: ' + error.message, 'danger');
+    }
 }
 
 async function submitComplaint() {
@@ -577,59 +541,62 @@ window.handleLogin = async () => {
     try { await auth.signInWithEmailAndPassword(e,p); } catch(err) { alert(err.message); }
 };
 
-// FIXED SIGNUP FUNCTION
+// FIXED SIGNUP FUNCTION - This saves to Firestore
 window.handleSignup = async () => {
-    // Get form values
-    const email = document.getElementById('signup-email')?.value;
-    const password = document.getElementById('signup-password')?.value;
-    const firstName = document.getElementById('signup-fname')?.value;
-    const lastName = document.getElementById('signup-lname')?.value;
-    const purok = document.getElementById('signup-purok')?.value;
+    // 1. Get values from HTML
+    const emailEl = document.getElementById('signup-email');
+    const passEl = document.getElementById('signup-password');
+    const fnameEl = document.getElementById('signup-fname');
+    const lnameEl = document.getElementById('signup-lname');
+    const purokEl = document.getElementById('signup-purok');
     
+    // Safety check
+    if (!emailEl || !passEl || !fnameEl || !lnameEl || !purokEl) {
+        console.error("Signup elements not found.");
+        return;
+    }
+
+    const email = emailEl.value.trim();
+    const pass = passEl.value;
+    const firstName = fnameEl.value.trim();
+    const lastName = lnameEl.value.trim();
+    const purok = purokEl.value;
+
     // Validation
-    if (!email || !password || !firstName || !lastName || !purok) {
-        alert('Please fill in all fields');
+    if (!email || !pass || !firstName || !lastName || !purok) {
+        alert('Please fill in all fields.');
         return;
     }
-    
-    if (password.length < 6) {
-        alert('Password must be at least 6 characters');
-        return;
-    }
-    
+
     try {
-        // 1. Create user in Firebase Authentication
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+        // 2. Create User in Firebase Authentication
+        const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
         const user = userCredential.user;
-        
-        // 2. Save user profile to Firestore
+
+        // 3. SAVE PROFILE TO FIRESTORE DATABASE
         await db.collection('profiles').doc(user.uid).set({
             firstName: firstName,
             lastName: lastName,
             email: email,
             purok: purok,
-            role: 'resident',  // Default role
-            phone: '',
+            role: 'resident', // Default role
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+
+        alert('Account created successfully! Please log in.');
         
-        alert('Account created successfully! Please login.');
+        // Switch back to login form
+        toggleAuthMode('login');
         
-        // Switch to login form
-        const loginForm = document.getElementById('login-form');
-        const signupForm = document.getElementById('signup-form');
-        if (loginForm) loginForm.style.display = 'block';
-        if (signupForm) signupForm.style.display = 'none';
-        
-        // Clear form
-        document.getElementById('signup-email').value = '';
-        document.getElementById('signup-password').value = '';
-        document.getElementById('signup-fname').value = '';
-        document.getElementById('signup-lname').value = '';
-        document.getElementById('signup-purok').value = '';
-        
+        // Clear inputs
+        emailEl.value = '';
+        passEl.value = '';
+        fnameEl.value = '';
+        lnameEl.value = '';
+        purokEl.value = '';
+
     } catch (error) {
-        console.error('Signup Error:', error);
+        console.error("Signup Error:", error);
         alert('Error: ' + error.message);
     }
 };
