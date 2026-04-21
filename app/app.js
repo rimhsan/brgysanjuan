@@ -377,14 +377,11 @@ async function openEditComplaintModal(id) {
 async function deleteComplaint(id) {
     if (userRole !== 'admin') return;
     if (!confirm('Are you sure you want to delete this complaint?')) return;
-    
     try {
         await db.collection('complaints').doc(id).delete();
         showToast('Complaint deleted', 'success');
         renderComplaints();
-    } catch (error) {
-        showToast('Failed to delete: ' + error.message, 'danger');
-    }
+    } catch (e) { showToast('Failed to delete', 'danger'); }
 }
 
 async function submitComplaint() {
@@ -398,35 +395,19 @@ async function submitComplaint() {
 
     try {
         const data = { category, title, description: desc, purok };
-        
         if (editId) {
-            // Update existing
-            await db.collection('complaints').doc(editId).update({ 
-                ...data, 
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
-            });
+            await db.collection('complaints').doc(editId).update({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
             showToast('Complaint updated!', 'success');
         } else {
-            // Create new
-            await db.collection('complaints').add({ 
-                ...data, 
-                userId: currentUser.uid, 
-                userName: currentUser.email, 
-                status: 'pending', 
-                createdAt: firebase.firestore.FieldValue.serverTimestamp() 
-            });
+            await db.collection('complaints').add({ ...data, userId: currentUser.uid, userName: currentUser.email, status: 'pending', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
             showToast('Complaint filed!', 'success');
         }
-        
         closeModal('complaintModal');
         renderComplaints();
-        
-        // Clear form
         document.getElementById('complaint-edit-id').value = '';
         ['complaint-category', 'complaint-title', 'complaint-desc', 'complaint-purok'].forEach(id => { 
             const el = document.getElementById(id); if(el) el.value = ''; 
         });
-        
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
@@ -933,7 +914,7 @@ window.handleLogin = async () => {
     try { await auth.signInWithEmailAndPassword(e,p); } catch(err) { alert(err.message); }
 };
 
-// FIXED SIGNUP FUNCTION
+// FIXED SIGNUP FUNCTION - This saves to Firestore
 window.handleSignup = async () => {
     const email = document.getElementById('signup-email')?.value.trim();
     const pass = document.getElementById('signup-password')?.value;
