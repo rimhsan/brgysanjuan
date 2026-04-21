@@ -24,6 +24,9 @@ const db = firebase.firestore();
 let currentUser = null;
 let userRole = 'resident';
 let mapInstance = null;
+let currentMonth = new Date();
+let selectedDate = new Date();
+let allBookings = [];
 
 // Detect Current Page
 const currentPage = window.location.pathname.split('/').pop() || 'index.html';
@@ -93,6 +96,7 @@ async function loadUserProfile() {
                 const showBtn = (id) => { const el = document.getElementById(id); if(el) el.style.display = 'inline-flex'; };
                 showBtn('schedule-summons-btn');
                 showBtn('add-announcement-btn');
+                showBtn('admin-court-btn');
             }
         }
     } catch (error) {
@@ -105,6 +109,7 @@ async function initializeApp() {
     if (currentPage === 'index.html' || currentPage === '') {
         await updateStats();
         await loadRecentComplaints();
+        await loadRecentCourtBookings();
     }
     if (currentPage === 'complaints.html') await renderComplaints('all', 'complaintList');
     if (currentPage === 'residents.html') await renderResidents();
@@ -208,6 +213,39 @@ async function loadRecentComplaints() {
     } catch (e) { container.innerHTML = '<p>Error.</p>'; }
 }
 
+async function loadRecentCourtBookings() {
+    const container = document.getElementById('recent-court-bookings');
+    if (!container) return;
+    try {
+        const snap = await db.collection('courtBookings').orderBy('createdAt', 'desc').limit(5).get();
+        const bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).slice(0, 5);
+        if (bookings.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:#7f8c8d;padding:20px;">No recent bookings.</p>';
+            return;
+        }
+        container.innerHTML = bookings.map(b => {
+            const time = (b.startTime && b.endTime) ? `${formatTime(b.startTime)} - ${formatTime(b.endTime)}` : 'All Day';
+            return `
+                <div class="court-booking-item ${b.isAdminBooking ? 'admin' : ''}">
+                    <div class="court-booking-header">
+                        <span class="court-booking-time">${time}</span>
+                        <span class="court-booking-date">${new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    </div>
+                    <div class="court-booking-name">${escapeHtml(b.bookerName)}</div>
+                    <div class="court-booking-activity">${escapeHtml(b.activity)}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) { container.innerHTML = '<p>Error.</p>'; }
+}
+
+function formatTime(timeStr) {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':');
+    const hour = parseInt(h);
+    return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+}
+
 // ==================== COMPLAINTS ====================
 async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     const container = document.getElementById(elementId);
@@ -217,7 +255,6 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     try {
         const snap = await db.collection('complaints').orderBy('createdAt', 'desc').get();
         let complaints = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
         if (filter !== 'all') complaints = complaints.filter(c => c.status === filter);
         
         if (complaints.length === 0) { 
@@ -225,7 +262,7 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
             return; 
         }
         
-        // FIXED: c => instead of c = >
+        // FIXED: Arrow function syntax
         container.innerHTML = complaints.map(c => `
             <div class="complaint-item">
                 <div class="complaint-header">
@@ -233,11 +270,13 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
                         ${categoryConfig[c.category]?.label || '📌 Other'}
                     </span>
                     ${userRole === 'admin' ? `
-                        <select class="status-dropdown" onchange="updateComplaintStatus('${c.id}', this.value)">
-                            <option value="pending" ${c.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
-                            <option value="progress" ${c.status === 'progress' ? 'selected' : ''}>🔄 In Progress</option>
-                            <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>✅ Resolved</option>
-                        </select>
+                        <div style="display:flex; gap:8px;">
+                            <select class="status-dropdown" onchange="updateComplaintStatus('${c.id}', this.value)">
+                                <option value="pending" ${c.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                                <option value="progress" ${c.status === 'progress' ? 'selected' : ''}>🔄 In Progress</option>
+                                <option value="resolved" ${c.status === 'resolved' ? 'selected' : ''}>✅ Resolved</option>
+                            </select>
+                        </div>
                     ` : `
                         <span class="status-badge status-${c.status || 'pending'}">
                             <span class="status-dot"></span> ${c.status === 'progress' ? 'In Progress' : (c.status === 'resolved' ? 'Resolved' : 'Pending')}
@@ -249,7 +288,14 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
                 <div class="complaint-meta">
                     <span>👤 ${escapeHtml(c.userName)}</span>
                     <span>📍 ${escapeHtml(c.purok)}</span>
+                    <span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
                 </div>
+                ${userRole === 'admin' ? `
+                    <div style="margin-top:16px; display:flex; gap:8px; border-top:1px solid var(--border); padding-top:12px;">
+                        <button class="btn btn-sm btn-outline" onclick="openEditComplaintModal('${c.id}')">✏️ Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteComplaint('${c.id}')">🗑️ Delete</button>
+                    </div>
+                ` : ''}
             </div>
         `).join('');
     } catch (e) { 
@@ -269,21 +315,57 @@ async function updateComplaintStatus(id, status) {
     }
 }
 
+async function openEditComplaintModal(id) {
+    if (userRole !== 'admin') return;
+    try {
+        const doc = await db.collection('complaints').doc(id).get();
+        if (doc.exists) {
+            const data = doc.data();
+            document.getElementById('complaint-edit-id').value = id;
+            document.getElementById('complaint-category').value = data.category;
+            document.getElementById('complaint-title').value = data.title;
+            document.getElementById('complaint-desc').value = data.description;
+            document.getElementById('complaint-purok').value = data.purok;
+            document.getElementById('complaint-modal-title').textContent = '✏️ Edit Complaint';
+            openModal('complaintModal');
+        }
+    } catch (e) { showToast('Error loading complaint', 'danger'); }
+}
+
+async function deleteComplaint(id) {
+    if (userRole !== 'admin') return;
+    if (!confirm('Are you sure you want to delete this complaint?')) return;
+    try {
+        await db.collection('complaints').doc(id).delete();
+        showToast('Complaint deleted', 'success');
+        renderComplaints();
+    } catch (e) { showToast('Failed to delete', 'danger'); }
+}
+
 async function submitComplaint() {
     const category = document.getElementById('complaint-category')?.value;
     const title = document.getElementById('complaint-title')?.value.trim();
     const desc = document.getElementById('complaint-desc')?.value.trim();
     const purok = document.getElementById('complaint-purok')?.value;
+    const editId = document.getElementById('complaint-edit-id')?.value;
+
     if (!category || !title || !desc || !purok) { showToast('Fill all fields.', 'warning'); return; }
 
     try {
-        await db.collection('complaints').add({
-            userId: currentUser.uid, userName: currentUser.email, category, title, description: desc, purok, status: 'pending',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        const data = { category, title, description: desc, purok };
+        if (editId) {
+            await db.collection('complaints').doc(editId).update({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            showToast('Complaint updated!', 'success');
+        } else {
+            await db.collection('complaints').add({ ...data, userId: currentUser.uid, userName: currentUser.email, status: 'pending', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            showToast('Complaint filed!', 'success');
+        }
         closeModal('complaintModal');
-        showToast('Complaint filed!', 'success');
-        if (currentPage === 'complaints.html') renderComplaints();
+        renderComplaints();
+        document.getElementById('complaint-edit-id').value = '';
+        ['complaint-category', 'complaint-title', 'complaint-desc', 'complaint-purok'].forEach(id => { 
+            const el = document.getElementById(id); if(el) el.value = ''; 
+        });
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
@@ -318,152 +400,93 @@ function stringToColor(str) {
     return '#' + '00000'.substring(0, 6 - c.length) + c;
 }
 
-// ==================== SUMMONS FUNCTIONS ====================
-
+// ==================== SUMMONS ====================
 async function renderSummons() {
     const container = document.getElementById('summonsList');
-    const scheduleBtn = document.getElementById('schedule-summons-btn');
-    
     if (!container) return;
-    
-    // Show Schedule button only for admins
-    if (userRole === 'admin') {
-        if (scheduleBtn) scheduleBtn.style.display = 'inline-flex';
-    } else {
-        if (scheduleBtn) scheduleBtn.style.display = 'none';
-    }
-    
-    container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:60px 20px;">⏳ Loading...</p>';
-    
+    container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">Loading...</p>';
     try {
         const snap = await db.collection('summons').orderBy('date', 'asc').get();
         const summons = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (summons.length === 0) { container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No summons.</p>'; return; }
         
-        if (summons.length === 0) { 
-            container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:60px 20px;">📭 No summons scheduled.</p>'; 
-            return; 
-        }
-        
-        container.innerHTML = summons.map(s => {
-            const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
-            
-            return `
-                <div class="summons-card">
-                    <div class="summons-info">
-                        <h4>${escapeHtml(s.caseTitle)}</h4>
-                        <p><strong>Complainant:</strong> ${escapeHtml(s.complainantName)}</p>
-                        <p><strong>Respondent:</strong> ${escapeHtml(s.respondentName)}</p>
-                        <p><strong>Location:</strong> ${escapeHtml(s.location)}</p>
-                    </div>
-                    <div class="summons-date">
-                        <div class="date">${dateStr}</div>
-                        <div class="time">🕐 ${s.time || 'N/A'}</div>
-                        ${userRole === 'admin' ? `
-                            <div class="announcement-actions" style="margin-top:12px;">
-                                <button class="btn btn-sm btn-outline" onclick="editSummons('${s.id}')">✏️ Edit</button>
-                                <button class="btn btn-sm btn-danger" onclick="deleteSummons('${s.id}')">🗑️ Delete</button>
-                            </div>
-                        ` : `<span class="status-badge status-confirmed"><span class="status-dot"></span> Confirmed</span>`}
-                    </div>
+        container.innerHTML = summons.map(s => `
+            <div class="summons-card">
+                <div class="summons-info">
+                    <h4>${escapeHtml(s.caseTitle)}</h4>
+                    <p>${escapeHtml(s.complainantName)} vs ${escapeHtml(s.respondentName)}</p>
                 </div>
-            `;
-        }).join('');
-    } catch (error) { 
-        console.error(error);
-        container.innerHTML = '<p style="text-align:center; color:var(--danger); padding:20px;">Error loading summons.</p>'; 
-    }
+                <div class="summons-date">
+                    <div class="date">${s.date}</div>
+                    <div class="time">${s.time}</div>
+                    ${userRole === 'admin' ? `
+                    <div style="display:flex; gap:6px; margin-top:6px;">
+                        <button class="btn btn-sm btn-outline" onclick="openEditSummonsModal('${s.id}')">✏️</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteSummons('${s.id}')">🗑️</button>
+                    </div>
+                    ` : `<span class="status-badge status-confirmed"><span class="status-dot"></span> Confirmed</span>`}
+                </div>
+            </div>
+        `).join('');
+    } catch (e) { container.innerHTML = '<p>Error.</p>'; }
 }
 
-async function saveSummons() {
-    const editId = document.getElementById('summons-edit-id')?.value;
-    const complainant = document.getElementById('summons-complainant')?.value.trim();
-    const respondent = document.getElementById('summons-respondent')?.value.trim();
-    const caseTitle = document.getElementById('summons-case')?.value.trim();
-    const date = document.getElementById('summons-date')?.value;
-    const time = document.getElementById('summons-time')?.value;
-    const location = document.getElementById('summons-location')?.value;
-    
-    if (!complainant || !respondent || !caseTitle || !date || !time) { 
-        showToast('Please fill in all required fields.', 'warning'); 
-        return; 
-    }
-    
-    try {
-        const summonsData = {
-            complainantName: complainant,
-            respondentName: respondent,
-            caseTitle: caseTitle,
-            date: date,
-            time: time,
-            location: location || 'Barangay Hall',
-            status: 'confirmed',
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        if (editId) {
-            // Update existing
-            await db.collection('summons').doc(editId).update(summonsData);
-            showToast('Summons updated!', 'success');
-        } else {
-            // Create new
-            summonsData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-            await db.collection('summons').add(summonsData);
-            showToast('Summons scheduled!', 'success');
-        }
-        
-        closeModal('summonsModal');
-        renderSummons();
-        
-        // Clear inputs
-        document.getElementById('summons-edit-id').value = '';
-        document.getElementById('summons-complainant').value = '';
-        document.getElementById('summons-respondent').value = '';
-        document.getElementById('summons-case').value = '';
-        document.getElementById('summons-date').value = '';
-        document.getElementById('summons-time').value = '';
-        
-    } catch (error) { 
-        showToast('Failed: ' + error.message, 'danger'); 
-    }
-}
-
-async function editSummons(id) {
+async function openEditSummonsModal(id) {
     if (userRole !== 'admin') return;
-    
     try {
         const doc = await db.collection('summons').doc(id).get();
         if (doc.exists) {
             const data = doc.data();
             document.getElementById('summons-edit-id').value = id;
-            document.getElementById('summons-complainant').value = data.complainantName || '';
-            document.getElementById('summons-respondent').value = data.respondentName || '';
-            document.getElementById('summons-case').value = data.caseTitle || '';
-            document.getElementById('summons-date').value = data.date || '';
-            document.getElementById('summons-time').value = data.time || '';
-            document.getElementById('summons-location').value = data.location || 'Barangay Hall - Conference Room';
+            document.getElementById('summons-complainant').value = data.complainantName;
+            document.getElementById('summons-respondent').value = data.respondentName;
+            document.getElementById('summons-case').value = data.caseTitle;
+            document.getElementById('summons-date').value = data.date;
+            document.getElementById('summons-time').value = data.time;
+            document.getElementById('summons-location').value = data.location;
             document.getElementById('summons-modal-title').textContent = '✏️ Edit Summons';
             openModal('summonsModal');
         }
-    } catch (error) {
-        showToast('Error loading summons', 'danger');
-    }
+    } catch (e) { showToast('Error loading summons', 'danger'); }
 }
 
 async function deleteSummons(id) {
     if (userRole !== 'admin') return;
-    if (!confirm('Are you sure you want to delete this summons?')) return;
-    
+    if (!confirm('Delete this summons?')) return;
     try {
         await db.collection('summons').doc(id).delete();
         showToast('Summons deleted', 'success');
         renderSummons();
-    } catch (error) {
-        showToast('Failed to delete: ' + error.message, 'danger');
-    }
+    } catch (e) { showToast('Failed to delete', 'danger'); }
+}
+
+async function saveSummons() {
+    const c = document.getElementById('summons-complainant')?.value.trim();
+    const r = document.getElementById('summons-respondent')?.value.trim();
+    const caseT = document.getElementById('summons-case')?.value.trim();
+    const d = document.getElementById('summons-date')?.value;
+    const t = document.getElementById('summons-time')?.value;
+    const l = document.getElementById('summons-location')?.value;
+    const editId = document.getElementById('summons-edit-id')?.value;
+    
+    if (!c || !r || !caseT || !d || !t) { showToast('Fill all fields.', 'warning'); return; }
+
+    try {
+        const data = { complainantName: c, respondentName: r, caseTitle: caseT, date: d, time: t, location: l };
+        if (editId) {
+            await db.collection('summons').doc(editId).update({ ...data, status: 'confirmed' });
+            showToast('Summons updated!', 'success');
+        } else {
+            await db.collection('summons').add({ ...data, status: 'confirmed', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            showToast('Summons scheduled!', 'success');
+        }
+        closeModal('summonsModal');
+        renderSummons();
+        document.getElementById('summons-edit-id').value = '';
+    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
 function openSummonsModal() {
-    // Clear form for new summons
     document.getElementById('summons-edit-id').value = '';
     document.getElementById('summons-complainant').value = '';
     document.getElementById('summons-respondent').value = '';
@@ -475,11 +498,7 @@ function openSummonsModal() {
     openModal('summonsModal');
 }
 
-// ==================== COURT CALENDAR & ADMIN FUNCTIONS ====================
-let currentMonth = new Date();
-let selectedDate = new Date();
-let allBookings = [];
-
+// ==================== COURT CALENDAR ====================
 function getLocalDateString(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -493,7 +512,7 @@ async function initCalendar(resetDate = false) {
         selectedDate = new Date();
     }
     
-    // Show/Hide Admin Sidebar
+    // Admin Sidebar Logic
     const adminSidebar = document.getElementById('admin-court-sidebar');
     if (adminSidebar) {
         adminSidebar.style.display = userRole === 'admin' ? 'block' : 'none';
@@ -503,6 +522,29 @@ async function initCalendar(resetDate = false) {
     renderCalendarHeader();
     await fetchMonthBookings();
     renderCalendarGrid();
+}
+
+async function loadAdminRecentBookings() {
+    const container = document.getElementById('admin-recent-bookings-list');
+    if (!container) return;
+    try {
+        const snap = await db.collection('courtBookings').orderBy('createdAt', 'desc').limit(10).get();
+        const bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (bookings.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:#7f8c8d;font-size:13px;padding:20px;">No bookings found.</p>';
+            return;
+        }
+        container.innerHTML = bookings.map(b => {
+            const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
+            return `
+                <div class="admin-booking-item" onclick="openEditBookingModal('${b.id}')">
+                    <div class="admin-booking-time">${time}</div>
+                    <div class="admin-booking-name">${escapeHtml(b.bookerName)}</div>
+                    <div class="admin-booking-activity">${escapeHtml(b.activity)} • ${b.date}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) { container.innerHTML = '<p style="color:var(--danger);font-size:13px;">Error loading.</p>'; }
 }
 
 function renderCalendarHeader() {
@@ -515,54 +557,15 @@ async function fetchMonthBookings() {
     const month = currentMonth.getMonth();
     const startOfMonth = getLocalDateString(new Date(year, month, 1));
     const endOfMonth = getLocalDateString(new Date(year, month + 1, 0));
-    
     try {
-        const snapshot = await db.collection('courtBookings')
-            .where('date', '>=', startOfMonth)
-            .where('date', '<=', endOfMonth)
-            .get();
+        const snapshot = await db.collection('courtBookings').where('date', '>=', startOfMonth).where('date', '<=', endOfMonth).get();
         allBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (error) {
-        console.warn("Fetch error", error);
-        allBookings = [];
-    }
-}
-
-// Load last 10 bookings for Admin Sidebar
-async function loadAdminRecentBookings() {
-    const container = document.getElementById('admin-recent-bookings-list');
-    if (!container) return;
-    
-    try {
-        // Fetch latest 10 from entire collection
-        const snap = await db.collection('courtBookings').orderBy('createdAt', 'desc').limit(10).get();
-        const bookings = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        if (bookings.length === 0) {
-            container.innerHTML = '<p style="text-align:center;color:#7f8c8d;font-size:13px;padding:20px;">No bookings found.</p>';
-            return;
-        }
-        
-        container.innerHTML = bookings.map(b => {
-            const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
-            return `
-                <div class="admin-booking-item" onclick="openEditBookingModal('${b.id}')">
-                    <div class="admin-booking-time">${time}</div>
-                    <div class="admin-booking-name">${escapeHtml(b.bookerName)}</div>
-                    <div class="admin-booking-activity">${escapeHtml(b.activity)} • ${b.date}</div>
-                </div>
-            `;
-        }).join('');
-    } catch (e) {
-        container.innerHTML = '<p style="color:var(--danger);font-size:13px;">Error loading.</p>';
-    }
+    } catch (error) { allBookings = []; }
 }
 
 function renderCalendarGrid() {
     const grid = document.getElementById('calendar-grid');
     if(!grid) return;
-    
-    // Keep headers, remove days
     const headers = Array.from(grid.children).slice(0, 7);
     grid.innerHTML = '';
     headers.forEach(h => grid.appendChild(h));
@@ -571,35 +574,23 @@ function renderCalendarGrid() {
     const month = currentMonth.getMonth();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
     const todayStr = getLocalDateString(new Date());
     const selectedStr = getLocalDateString(selectedDate);
     
-    // Empty cells
-    for (let i = 0; i < firstDayOfMonth; i++) {
-        grid.appendChild(document.createElement('div'));
-    }
+    for (let i = 0; i < firstDayOfMonth; i++) grid.appendChild(document.createElement('div'));
     
-    // Days
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayBookings = allBookings.filter(b => b.date === dateStr);
-        
         const cell = document.createElement('div');
         cell.className = `calendar-day ${dateStr === todayStr ? 'today' : ''} ${dateStr === selectedStr ? 'selected' : ''}`;
-        
-        // Click to select date
-        cell.onclick = () => {
-            selectedDate = new Date(year, month, day);
-            renderCalendarGrid();
-        };
+        cell.onclick = () => { selectedDate = new Date(year, month, day); renderCalendarGrid(); };
         
         let bookingsHtml = '';
         if (dayBookings.length > 0) {
             bookingsHtml = '<div class="grid-bookings">';
             dayBookings.forEach(b => {
                 const time = (b.startTime && b.endTime) ? `${b.startTime} - ${b.endTime}` : 'All Day';
-                // Admins can click booking in grid to edit
                 const clickAction = userRole === 'admin' ? `onclick="event.stopPropagation(); openEditBookingModal('${b.id}')"` : '';
                 bookingsHtml += `<div class="grid-booking ${b.isAdminBooking ? 'admin' : ''}" ${clickAction}>
                     <div class="grid-time">${time}</div>
@@ -608,18 +599,13 @@ function renderCalendarGrid() {
             });
             bookingsHtml += '</div>';
         }
-        
-        cell.innerHTML = `<div class="day-top"><div class="day-number">${day}</div></div>${bookingsHtml}`;
+        cell.innerHTML = `<div class="day-number">${day}</div>${bookingsHtml}`;
         grid.appendChild(cell);
     }
 }
 
-function changeMonth(delta) {
-    currentMonth.setMonth(currentMonth.getMonth() + delta);
-    initCalendar(false);
-}
+function changeMonth(delta) { currentMonth.setMonth(currentMonth.getMonth() + delta); initCalendar(false); }
 
-// Open Modal for NEW Booking
 function openBookingModal() {
     document.getElementById('court-booking-edit-id').value = '';
     document.getElementById('court-date').value = getLocalDateString(selectedDate);
@@ -627,17 +613,13 @@ function openBookingModal() {
     document.getElementById('court-start-time').value = '';
     document.getElementById('court-end-time').value = '';
     document.getElementById('court-activity').value = 'Basketball';
-    
     document.getElementById('court-modal-title').textContent = '📅 Book Court Slot';
     document.getElementById('btn-delete-booking').style.display = 'none';
-    
     openModal('courtModal');
 }
 
-// Open Modal for EDITING (Admin Only)
 async function openEditBookingModal(id) {
     if (userRole !== 'admin') return;
-    
     try {
         const doc = await db.collection('courtBookings').doc(id).get();
         if (doc.exists) {
@@ -648,24 +630,17 @@ async function openEditBookingModal(id) {
             document.getElementById('court-start-time').value = data.startTime;
             document.getElementById('court-end-time').value = data.endTime;
             document.getElementById('court-activity').value = data.activity;
-            
             document.getElementById('court-modal-title').textContent = '✏️ Edit Booking';
-            document.getElementById('btn-delete-booking').style.display = 'inline-flex'; // Show Delete Button
-            
+            document.getElementById('btn-delete-booking').style.display = 'inline-flex';
             openModal('courtModal');
         }
-    } catch (e) {
-        showToast('Error loading booking', 'danger');
-    }
+    } catch (e) { showToast('Error loading booking', 'danger'); }
 }
 
-// DELETE CURRENT BOOKING
 async function deleteCurrentBooking() {
     const editId = document.getElementById('court-booking-edit-id')?.value;
     if (!editId) return;
-    
-    if (!confirm('Are you sure you want to delete this booking?')) return;
-    
+    if (!confirm('Delete this booking?')) return;
     try {
         await db.collection('courtBookings').doc(editId).delete();
         showToast('Booking deleted', 'success');
@@ -673,18 +648,11 @@ async function deleteCurrentBooking() {
         await fetchMonthBookings();
         renderCalendarGrid();
         if (userRole === 'admin') await loadAdminRecentBookings();
-    } catch (e) {
-        showToast('Failed to delete', 'danger');
-    }
+    } catch (e) { showToast('Failed', 'danger'); }
 }
 
-function toMinutes(timeStr) {
-    if (!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    return (h * 60) + m;
-}
+function toMinutes(t) { if (!t) return 0; const [h, m] = t.split(':').map(Number); return h * 60 + m; }
 
-// CONFIRM BOOKING (Handles Create & Update)
 async function bookCourt() {
     const name = document.getElementById('court-booker')?.value.trim();
     const date = document.getElementById('court-date')?.value;
@@ -693,77 +661,36 @@ async function bookCourt() {
     const activity = document.getElementById('court-activity')?.value;
     const editId = document.getElementById('court-booking-edit-id')?.value;
 
-    if (!name || !date || !start || !end) { showToast('Fill all fields.', 'warning'); return; }
-    if (start >= end) { showToast('End time must be after start.', 'warning'); return; }
-    
-    const startH = parseInt(start.split(':')[0]);
-    const endH = parseInt(end.split(':')[0]);
-    if (startH < 6 || endH > 19) { showToast('Court hours: 6 AM - 7 PM', 'warning'); return; }
+    if (!name || !date || !start || !end) return showToast('Fill all fields.', 'warning');
+    if (start >= end) return showToast('End time must be after start.', 'warning');
+    if (parseInt(start.split(':')[0]) < 6 || parseInt(end.split(':')[0]) > 19) return showToast('Court hours: 6 AM - 7 PM', 'warning');
 
     try {
-        // Check Overlaps ONLY if creating NEW (not editing)
         if (!editId) {
-            const hasOverlap = allBookings.some(b => {
-                if (b.date !== date) return false;
-                return (toMinutes(start) < toMinutes(b.endTime) && toMinutes(end) > toMinutes(b.startTime));
-            });
-            if (hasOverlap) { showToast('Time slot overlaps!', 'danger'); return; }
-        }
-
-        if (editId) {
-            // --- UPDATE EXISTING ---
-            await db.collection('courtBookings').doc(editId).update({
-                bookerName: name, 
-                startTime: start, 
-                endTime: end, 
-                activity,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            showToast('Booking updated!', 'success');
+            if (allBookings.some(b => b.date === date && toMinutes(start) < toMinutes(b.endTime) && toMinutes(end) > toMinutes(b.startTime))) return showToast('Slot overlaps!', 'danger');
+            await db.collection('courtBookings').add({ userId: currentUser.uid, bookerName: name, date, startTime: start, endTime: end, activity, isAdminBooking: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            showToast('Booked!', 'success');
         } else {
-            // --- CREATE NEW ---
-            await db.collection('courtBookings').add({
-                userId: currentUser.uid, 
-                bookerName: name, 
-                date, 
-                startTime: start, 
-                endTime: end, 
-                activity,
-                isAdminBooking: userRole === 'admin',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            showToast('Booking confirmed!', 'success');
+            await db.collection('courtBookings').doc(editId).update({ bookerName: name, startTime: start, endTime: end, activity, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            showToast('Updated!', 'success');
         }
-
-        closeModal('courtModal');
-        await fetchMonthBookings();
-        renderCalendarGrid();
-        if (userRole === 'admin') await loadAdminRecentBookings();
-        
-        // Clear inputs
-        document.getElementById('court-booking-edit-id').value = '';
-        document.getElementById('court-booker').value = '';
-
-    } catch (error) { 
-        showToast('Failed: ' + error.message, 'danger'); 
-    }
+        closeModal('courtModal'); await fetchMonthBookings(); renderCalendarGrid(); document.getElementById('court-booking-edit-id').value = ''; document.getElementById('court-booker').value = '';
+    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
-// ==================== ANNOUNCEMENTS FUNCTIONS ====================
-
+// ==================== ANNOUNCEMENTS ====================
 async function loadAnnouncements() {
     const container = document.getElementById('announcementsList');
     const addBtn = document.getElementById('add-announcement-btn');
     
     if (!container) return;
     
-    // Show Add button only for admins
     if (userRole === 'admin') {
         if (addBtn) addBtn.style.display = 'inline-flex';
     } else {
         if (addBtn) addBtn.style.display = 'none';
     }
-    
+
     container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:60px 20px;">⏳ Loading...</p>';
     
     try {
@@ -821,7 +748,6 @@ async function saveAnnouncement() {
     
     try {
         if (editId) {
-            // Update existing
             await db.collection('announcements').doc(editId).update({
                 title: title,
                 content: content,
@@ -830,7 +756,6 @@ async function saveAnnouncement() {
             });
             showToast('Announcement updated!', 'success');
         } else {
-            // Create new
             await db.collection('announcements').add({
                 title: title,
                 content: content,
@@ -844,7 +769,6 @@ async function saveAnnouncement() {
         closeModal('announcementModal');
         loadAnnouncements();
         
-        // Clear inputs
         document.getElementById('announcement-edit-id').value = '';
         document.getElementById('announcement-title').value = '';
         document.getElementById('announcement-content').value = '';
@@ -856,7 +780,6 @@ async function saveAnnouncement() {
 
 async function editAnnouncement(id) {
     if (userRole !== 'admin') return;
-    
     try {
         const doc = await db.collection('announcements').doc(id).get();
         if (doc.exists) {
@@ -876,7 +799,6 @@ async function editAnnouncement(id) {
 async function deleteAnnouncement(id) {
     if (userRole !== 'admin') return;
     if (!confirm('Are you sure you want to delete this announcement?')) return;
-    
     try {
         await db.collection('announcements').doc(id).delete();
         showToast('Announcement deleted', 'success');
@@ -887,7 +809,6 @@ async function deleteAnnouncement(id) {
 }
 
 function openAnnouncementModal() {
-    // Clear form for new announcement
     document.getElementById('announcement-edit-id').value = '';
     document.getElementById('announcement-title').value = '';
     document.getElementById('announcement-content').value = '';
@@ -895,6 +816,7 @@ function openAnnouncementModal() {
     document.getElementById('announcement-modal-title').textContent = '📢 Add Announcement';
     openModal('announcementModal');
 }
+
 // ==================== ACCOUNT PAGE ====================
 function switchAccountTab(tabId, btn) {
     document.querySelectorAll('.account-section').forEach(s => s.classList.remove('active'));
@@ -914,20 +836,68 @@ async function loadAccountPage() {
             setVal('acc-last-name', data.lastName);
             setVal('acc-email', data.email);
             setVal('acc-purok', data.purok);
+            setVal('acc-phone', data.phone);
+            const setCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val !== false; };
+            setCheck('acc-notif-email', data.emailNotifications);
         }
+        await loadMyComplaints();
     } catch (e) { console.error(e); }
 }
 
 async function saveAccountProfile() {
     const fn = document.getElementById('acc-first-name')?.value.trim();
     const ln = document.getElementById('acc-last-name')?.value.trim();
-    const pk = document.getElementById('acc-purok')?.value;
+    const purok = document.getElementById('acc-purok')?.value;
+    const phone = document.getElementById('acc-phone')?.value.trim();
     if (!fn || !ln) { showToast('Name is required', 'warning'); return; }
     try {
-        await db.collection('profiles').doc(currentUser.uid).update({ firstName: fn, lastName: ln, purok: pk });
+        await db.collection('profiles').doc(currentUser.uid).update({ firstName: fn, lastName: ln, purok, phone });
+        await currentUser.updateProfile({ displayName: `${fn} ${ln}` });
         showToast('Profile updated!', 'success');
         loadUserProfile();
     } catch (e) { showToast('Error: ' + e.message, 'danger'); }
+}
+
+async function changeAccountPassword() {
+    const curr = document.getElementById('acc-current-pass')?.value;
+    const newP = document.getElementById('acc-new-pass')?.value;
+    const conf = document.getElementById('acc-confirm-pass')?.value;
+    if (!curr || !newP || !conf) { showToast('Fill all password fields', 'warning'); return; }
+    if (newP.length < 6) { showToast('Min 6 characters', 'warning'); return; }
+    if (newP !== conf) { showToast('Passwords do not match', 'danger'); return; }
+    try {
+        const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, curr);
+        await currentUser.reauthenticateWithCredential(cred);
+        await currentUser.updatePassword(newP);
+        showToast('Password updated!', 'success');
+        ['acc-current-pass','acc-new-pass','acc-confirm-pass'].forEach(id => document.getElementById(id).value = '');
+    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
+}
+
+async function saveNotifPrefs() {
+    try {
+        await db.collection('profiles').doc(currentUser.uid).update({
+            emailNotifications: document.getElementById('acc-notif-email')?.checked
+        });
+        showToast('Preferences saved!', 'success');
+    } catch (e) { showToast('Error saving', 'danger'); }
+}
+
+async function loadMyComplaints() {
+    const container = document.getElementById('my-complaints-list');
+    if (!container) return;
+    try {
+        const snap = await db.collection('complaints').where('userId', '==', currentUser.uid).orderBy('createdAt', 'desc').get();
+        if (snap.empty) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:40px;">You haven\'t filed any complaints yet.</p>';
+            return;
+        }
+        container.innerHTML = snap.docs.map(doc => {
+            const c = doc.data();
+            const cls = c.status === 'resolved' ? 'resolved' : (c.status === 'progress' ? 'progress' : '');
+            return `<div class="complaint-card ${cls}"><div class="complaint-header"><h4>${escapeHtml(c.title)}</h4><span class="status-badge status-${c.status||'pending'}"><span class="status-dot"></span> ${c.status||'Pending'}</span></div><div class="complaint-desc">${escapeHtml(c.description)}</div><div class="complaint-meta"><span>📍 ${escapeHtml(c.purok)}</span><span>🕐 ${c.createdAt ? new Date(c.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span></div></div>`;
+        }).join('');
+    } catch (e) { container.innerHTML = '<p>Error loading complaints.</p>'; }
 }
 
 // ==================== MAP ====================
@@ -938,7 +908,7 @@ function initMap() {
     L.marker([13.4205, 123.4194]).addTo(mapInstance).bindPopup('Barangay Hall');
 }
 
-// ==================== LOGIN / SIGNUP (FIXED) ====================
+// ==================== LOGIN/SIGNUP ====================
 window.handleLogin = async () => {
     const e = document.getElementById('login-email')?.value;
     const p = document.getElementById('login-password')?.value;
@@ -946,7 +916,7 @@ window.handleLogin = async () => {
     try { await auth.signInWithEmailAndPassword(e,p); } catch(err) { alert(err.message); }
 };
 
-// FIXED SIGNUP FUNCTION - This saves to Firestore ✅
+// FIXED SIGNUP FUNCTION - Saves to Firestore
 window.handleSignup = async () => {
     const email = document.getElementById('signup-email')?.value.trim();
     const pass = document.getElementById('signup-password')?.value;
@@ -968,17 +938,18 @@ window.handleSignup = async () => {
         const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
         const user = userCredential.user;
 
-        // 2. SAVE PROFILE TO FIRESTORE DATABASE ✅
+        // 2. Save user profile to Firestore
         await db.collection('profiles').doc(user.uid).set({
             firstName: fname,
             lastName: lname,
             email: email,
             purok: purok,
-            role: 'resident',
+            role: 'resident',  // Default role
+            phone: '',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-
-        alert('Account created successfully! Please log in.');
+        
+        alert('Account created successfully! Please login.');
         
         // Switch to login form
         toggleAuthMode('login');
@@ -991,7 +962,7 @@ window.handleSignup = async () => {
         document.getElementById('signup-purok').value = '';
 
     } catch (error) {
-        console.error("Signup Error:", error);
+        console.error('Signup Error:', error);
         alert('Error: ' + error.message);
     }
 };
@@ -1008,6 +979,8 @@ window.initCalendar = initCalendar;
 window.changeMonth = changeMonth;
 window.openBookingModal = openBookingModal;
 window.bookCourt = bookCourt;
+window.openEditBookingModal = openEditBookingModal;
+window.deleteCurrentBooking = deleteCurrentBooking;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.toggleSidebar = toggleSidebar;
@@ -1015,29 +988,24 @@ window.handleLogout = handleLogout;
 window.toggleProfileDropdown = window.toggleProfileDropdown;
 window.saveAccountProfile = saveAccountProfile;
 window.switchAccountTab = switchAccountTab;
+window.changeAccountPassword = changeAccountPassword;
+window.saveNotifPrefs = saveNotifPrefs;
+window.loadAccountPage = loadAccountPage;
 window.submitComplaint = submitComplaint;
 window.filterComplaints = filterComplaints;
 window.updateComplaintStatus = updateComplaintStatus;
+window.openEditComplaintModal = openEditComplaintModal;
+window.deleteComplaint = deleteComplaint;
 window.renderResidents = renderResidents;
-window.addSummons = addSummons;
-window.loadAnnouncements = loadAnnouncements;
-window.saveAnnouncement = saveAnnouncement;
-window.openAnnouncementModal = function() { openModal('announcementModal'); };
-window.saveAnnouncement = saveAnnouncement;
-window.loadAccountPage = loadAccountPage;
+window.renderSummons = renderSummons;
+window.saveSummons = saveSummons;
+window.editSummons = openEditSummonsModal;
+window.deleteSummons = deleteSummons;
+window.openSummonsModal = openSummonsModal;
 window.loadAnnouncements = loadAnnouncements;
 window.saveAnnouncement = saveAnnouncement;
 window.editAnnouncement = editAnnouncement;
 window.deleteAnnouncement = deleteAnnouncement;
 window.openAnnouncementModal = openAnnouncementModal;
-window.renderSummons = renderSummons;
-window.saveSummons = saveSummons;
-window.editSummons = editSummons;
-window.deleteSummons = deleteSummons;
-window.openSummonsModal = openSummonsModal;
-window.initCalendar = initCalendar;
-window.changeMonth = changeMonth;
-window.openBookingModal = openBookingModal;
-window.bookCourt = bookCourt;
-window.openEditBookingModal = openEditBookingModal;
-window.deleteCurrentBooking = deleteCurrentBooking;
+window.loadMyComplaints = loadMyComplaints;
+window.renderComplaints = renderComplaints;
