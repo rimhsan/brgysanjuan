@@ -26,16 +26,44 @@
             </div>
             
             <!-- Signup Form -->
-            <div id="signup-form" class="auth-form" style="display:none;">
+            <div class="auth-form" id="signup-form" style="display: none;">
                 <h2>Create Resident Account</h2>
+                
                 <div class="form-row">
-                    <div class="form-group"><label>First Name</label><input type="text" id="signup-fname" placeholder="Juan"></div>
-                    <div class="form-group"><label>Last Name</label><input type="text" id="signup-lname" placeholder="Dela Cruz"></div>
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" id="signup-fname" placeholder="Juan">
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" id="signup-lname" placeholder="Dela Cruz">
+                    </div>
                 </div>
-                <div class="form-group"><label>Purok</label><select id="signup-purok"><option value="">Select Purok</option><option value="Purok 1">Purok 1</option><option value="Purok 2">Purok 2</option><option value="Purok 3">Purok 3</option><option value="Purok 4">Purok 4</option><option value="Purok 5">Purok 5</option></select></div>
-                <div class="form-group"><label>Email Address</label><input type="email" id="signup-email" placeholder="you@example.com"></div>
-                <div class="form-group"><label>Password (min 6 characters)</label><input type="password" id="signup-password" placeholder="••••••••"></div>
+            
+                <div class="form-group">
+                    <label>Purok</label>
+                    <select id="signup-purok">
+                        <option value="">Select Purok</option>
+                        <option value="Purok 1">Purok 1</option>
+                        <option value="Purok 2">Purok 2</option>
+                        <option value="Purok 3">Purok 3</option>
+                        <option value="Purok 4">Purok 4</option>
+                        <option value="Purok 5">Purok 5</option>
+                    </select>
+                </div>
+            
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="signup-email" placeholder="you@example.com">
+                </div>
+            
+                <div class="form-group">
+                    <label>Password (min 6 characters)</label>
+                    <input type="password" id="signup-password" placeholder="••••••••">
+                </div>
+            
                 <button class="btn btn-accent btn-full" onclick="handleSignup()">Create Account</button>
+                
                 <p class="auth-switch">Already have an account? <a href="#" onclick="toggleAuthMode('login')">Login</a></p>
             </div>
             
