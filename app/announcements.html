@@ -83,22 +83,21 @@
                 <button class="btn btn-primary" id="add-announcement-btn" style="display:none;" onclick="openAnnouncementModal()">➕ Add Announcement</button>
             </div>
             
-            <div class="announcements-grid" id="announcementsList">
-                <p style="text-align:center; color:#7f8c8d; padding:60px 20px;">
-                    📭 No announcements yet.
-                </p>
+            <div class="announcements-list" id="announcementsList">
+                <p style="text-align:center; color:#7f8c8d; padding:60px 20px;">⏳ Loading announcements...</p>
             </div>
         </div>
     </div>
 
-    <!-- Add Announcement Modal -->
+    <!-- Add/Edit Announcement Modal -->
     <div class="modal-overlay" id="announcementModal">
         <div class="modal">
             <div class="modal-header">
-                <h3>📢 Add Announcement</h3>
+                <h3 id="announcement-modal-title">📢 Add Announcement</h3>
                 <button class="modal-close" onclick="closeModal('announcementModal')">✕</button>
             </div>
             <div class="modal-body">
+                <input type="hidden" id="announcement-edit-id">
                 <div class="form-group">
                     <label>Title *</label>
                     <input type="text" id="announcement-title" placeholder="Announcement title">
