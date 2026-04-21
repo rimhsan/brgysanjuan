@@ -1,8 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Court Schedule - Barangay San Juan</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">🏛️</div>
+            <h2>Barangay San Juan</h2>
+            <p>Iriga City, Camarines Sur</p>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="index.html"><span class="icon">📊</span> Dashboard</a>
+            <a href="complaints.html"><span class="icon">📝</span> Complaints & Concerns</a>
+            <a href="residents.html"><span class="icon">👥</span> Residents</a>
+            <div class="nav-section-label">Scheduling</div>
+            <a href="summons.html"><span class="icon">📋</span> Scheduled Summons</a>
+            <a href="court.html" class="active"><span class="icon">🏟️</span> Multipurpose Court</a>
+            <div class="nav-section-label">Information</div>
+            <a href="map.html"><span class="icon">🗺️</span> Barangay Map</a>
+            <a href="announcements.html"><span class="icon">📢</span> Announcements</a>
+            <a href="#" onclick="handleLogout()"><span class="icon">🚪</span> Logout</a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main">
+        <!-- Topbar -->
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                <div class="search-box"><input type="text" placeholder="Search..." id="globalSearch"></div>
+            </div>
+            <div class="topbar-right">
+                <button class="notification-btn">🔔<span class="notification-badge"></span></button>
+                
+                <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
+                    <div class="user-avatar" id="user-avatar">NO</div>
+                    <div class="user-info-brief">
+                        <span class="user-name" id="user-name">Loading...</span>
+                        <span class="user-role" id="user-role">Resident</span>
+                    </div>
+                    <span class="dropdown-arrow">▼</span>
+                </div>
+
+                <div class="profile-dropdown" id="profileDropdown">
+                    <div class="dropdown-header">
+                        <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
+                        <div class="dropdown-details">
+                            <div class="dropdown-name" id="dropdown-name">User Name</div>
+                            <div class="dropdown-email" id="dropdown-email">email</div>
+                            <span class="dropdown-role-tag" id="dropdown-role-tag">Resident</span>
+                        </div>
+                    </div>
+                    <div class="dropdown-body">
+                        <a href="account.html" class="dropdown-link">
+                            <span class="link-icon">👤</span>
+                            <div class="link-text">
+                                <span class="link-title">My Account</span>
+                                <span class="link-desc">Profile, Security & Complaints</span>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="dropdown-footer">
+                        <button class="logout-btn" onclick="handleLogout()">🚪 Sign Out</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Content -->
         <div class="content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+            <div class="page-header">
                 <h1 class="page-title">Court Schedule</h1>
-                ${userRole === 'admin' ? '<span class="badge badge-admin">Admin View</span>' : ''}
+                <span class="badge badge-admin" id="admin-badge" style="display:none;">Admin View</span>
             </div>
             
             <div class="court-layout">
@@ -18,7 +93,13 @@
                     
                     <div class="calendar-grid" id="calendar-grid">
                         <!-- Grid Headers -->
-                        <div class="day-header">Sun</div><div class="day-header">Mon</div><div class="day-header">Tue</div><div class="day-header">Wed</div><div class="day-header">Thu</div><div class="day-header">Fri</div><div class="day-header">Sat</div>
+                        <div class="day-header">Sun</div>
+                        <div class="day-header">Mon</div>
+                        <div class="day-header">Tue</div>
+                        <div class="day-header">Wed</div>
+                        <div class="day-header">Thu</div>
+                        <div class="day-header">Fri</div>
+                        <div class="day-header">Sat</div>
                         <!-- Days will be injected here by JS -->
                     </div>
                     
@@ -45,7 +126,7 @@
         </div>
     </div>
 
-    <!-- Booking Modal (Updated for Edit/Delete) -->
+    <!-- Booking Modal -->
     <div class="modal-overlay" id="courtModal">
         <div class="modal">
             <div class="modal-header">
@@ -97,3 +178,14 @@
             </div>
         </div>
     </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
