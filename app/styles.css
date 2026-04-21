@@ -677,3 +677,72 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
         width: 100%;
     }
 }
+/* ==================== COURT LAYOUT FIX ==================== */
+.court-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 32px;
+    align-items: start;
+}
+
+.court-main {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1.5px solid var(--border);
+}
+
+.court-sidebar .card {
+    position: sticky;
+    top: 100px; /* Sticks when scrolling */
+}
+
+.admin-booking-item {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.admin-booking-item:hover {
+    background: #f8fafc;
+}
+
+.admin-booking-item:last-child {
+    border-bottom: none;
+}
+
+.admin-booking-time {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--primary);
+}
+
+.admin-booking-name {
+    font-size: 13px;
+    color: var(--text);
+    margin-top: 4px;
+}
+
+.admin-booking-activity {
+    font-size: 12px;
+    color: var(--text-light);
+}
+
+.badge-admin {
+    background: var(--accent);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+@media (max-width: 1024px) {
+    .court-layout {
+        grid-template-columns: 1fr;
+    }
+    .court-sidebar {
+        order: -1; /* Move sidebar to top on mobile */
+    }
+}
