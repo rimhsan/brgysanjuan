@@ -916,46 +916,58 @@ window.handleLogin = async () => {
 
 // FIXED SIGNUP FUNCTION - This saves to Firestore
 window.handleSignup = async () => {
-    // 1. Get values from the HTML form
+    // Get form values
     const email = document.getElementById('signup-email')?.value;
     const password = document.getElementById('signup-password')?.value;
     const firstName = document.getElementById('signup-fname')?.value;
     const lastName = document.getElementById('signup-lname')?.value;
     const purok = document.getElementById('signup-purok')?.value;
-
-    // 2. Validation
+    
+    // Validation
     if (!email || !password || !firstName || !lastName) {
-        alert("Please fill in all fields.");
+        alert('Please fill in all required fields');
         return;
     }
-
+    
+    if (password.length < 6) {
+        alert('Password must be at least 6 characters');
+        return;
+    }
+    
     try {
-        // 3. Create the user in Firebase Authentication
+        // 1. Create user in Firebase Authentication
         const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
-
-        // 4. Save the user details to Firestore 'profiles' collection
-        // We use the user's unique ID (uid) as the document ID
+        
+        // 2. Save user profile to Firestore
         await db.collection('profiles').doc(user.uid).set({
             firstName: firstName,
             lastName: lastName,
             email: email,
-            purok: purok,
-            role: 'resident', // Default role for new signups
+            purok: purok || '',
+            role: 'resident',  // Default role
+            phone: '',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-
-        alert("Account created successfully! Please login.");
         
-        // Optional: Switch back to login form
+        alert('Account created successfully! Please login.');
+        
+        // Switch to login form
         const loginForm = document.getElementById('login-form');
         const signupForm = document.getElementById('signup-form');
-        if(loginForm) loginForm.style.display = 'block';
-        if(signupForm) signupForm.style.display = 'none';
+        if (loginForm) loginForm.style.display = 'block';
+        if (signupForm) signupForm.style.display = 'none';
+        
+        // Clear form
+        if (document.getElementById('signup-email')) document.getElementById('signup-email').value = '';
+        if (document.getElementById('signup-password')) document.getElementById('signup-password').value = '';
+        if (document.getElementById('signup-fname')) document.getElementById('signup-fname').value = '';
+        if (document.getElementById('signup-lname')) document.getElementById('signup-lname').value = '';
+        if (document.getElementById('signup-purok')) document.getElementById('signup-purok').value = '';
         
     } catch (error) {
-        console.error("Signup Error:", error);
-        alert(error.message);
+        console.error('Signup Error:', error);
+        alert('Error: ' + error.message);
     }
 };
 
