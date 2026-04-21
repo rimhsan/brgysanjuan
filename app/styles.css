@@ -592,3 +592,88 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
 .cat-utilities { background: #d5f5e3; color: #1e8449; }
 .cat-sanitation { background: #e0f2f1; color: #00695c; }
 .cat-events { background: #fdebd0; color: #d68910; }
+/* Summons List */
+.summons-list {
+    display: grid;
+    gap: 20px;
+}
+
+.summons-card {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    transition: all 0.2s;
+}
+
+.summons-card:hover {
+    border-color: var(--primary-light);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+
+.summons-info {
+    flex: 1;
+}
+
+.summons-info h4 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text);
+}
+
+.summons-info p {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-bottom: 6px;
+}
+
+.summons-info strong {
+    color: var(--text);
+}
+
+.summons-date {
+    text-align: right;
+    min-width: 180px;
+}
+
+.summons-date .date {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 6px;
+}
+
+.summons-date .time {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-bottom: 12px;
+}
+
+/* Mobile Responsive for Summons */
+@media (max-width: 768px) {
+    .summons-card {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .summons-date {
+        text-align: left;
+        width: 100%;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+    }
+    
+    .announcement-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .announcement-actions .btn {
+        width: 100%;
+    }
+}
