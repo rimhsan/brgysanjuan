@@ -93,20 +93,54 @@
     </div>
 
     <!-- Complaint Modal -->
-    <div class="modal-overlay" id="complaintModal">
-        <div class="modal">
-            <div class="modal-header"><h3>📝 File a Complaint</h3><button class="modal-close" onclick="closeModal('complaintModal')">✕</button></div>
-            <div class="modal-body">
-                <input type="hidden" id="complaint-edit-id">
-                <h3 id="complaint-modal-title" style="margin-bottom:20px;">📝 File a Complaint</h3>
-                <div class="form-group"><label>Category *</label><select id="complaint-category"><option value="">Select category...</option><option value="roadwork">🚧 Roadwork</option><option value="lightpost">💡 Lightpost</option><option value="drainage">🔧 Drainage</option><option value="noise">📢 Noise</option><option value="garbage">🗑️ Garbage</option><option value="other">📌 Other</option></select></div>
-                <div class="form-group"><label>Title *</label><input type="text" id="complaint-title" placeholder="Brief description"></div>
-                <div class="form-group"><label>Description *</label><textarea id="complaint-desc" placeholder="Provide details..."></textarea></div>
-                <div class="form-group"><label>Purok *</label><select id="complaint-purok"><option value="">Select purok...</option><option value="Purok 1">Purok 1</option><option value="Purok 2">Purok 2</option><option value="Purok 3">Purok 3</option><option value="Purok 4">Purok 4</option><option value="Purok 5">Purok 5</option></select></div>
+<div class="modal-overlay" id="complaintModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="complaint-modal-title">📝 File a Complaint</h3>
+            <button class="modal-close" onclick="closeModal('complaintModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <!-- Hidden Input for Edit ID -->
+            <input type="hidden" id="complaint-edit-id">
+            
+            <div class="form-group">
+                <label>Category *</label>
+                <select id="complaint-category">
+                    <option value="">Select category...</option>
+                    <option value="roadwork">🚧 Roadwork</option>
+                    <option value="lightpost">💡 Lightpost</option>
+                    <option value="drainage">🔧 Drainage</option>
+                    <option value="noise">📢 Noise</option>
+                    <option value="garbage">🗑️ Garbage</option>
+                    <option value="other">📌 Other</option>
+                </select>
             </div>
-            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('complaintModal')">Cancel</button><button class="btn btn-primary" onclick="submitComplaint()">Submit</button></div>
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" id="complaint-title" placeholder="Brief description">
+            </div>
+            <div class="form-group">
+                <label>Description *</label>
+                <textarea id="complaint-desc" placeholder="Provide details..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Purok *</label>
+                <select id="complaint-purok">
+                    <option value="">Select purok...</option>
+                    <option value="Purok 1">Purok 1</option>
+                    <option value="Purok 2">Purok 2</option>
+                    <option value="Purok 3">Purok 3</option>
+                    <option value="Purok 4">Purok 4</option>
+                    <option value="Purok 5">Purok 5</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal('complaintModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitComplaint()">Submit</button>
         </div>
     </div>
+</div>
 
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
