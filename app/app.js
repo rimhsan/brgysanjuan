@@ -454,40 +454,85 @@ async function bookCourt() {
 // ==================== ANNOUNCEMENTS ====================
 async function loadAnnouncements() {
     const container = document.getElementById('announcementsList');
+    const addBtn = document.getElementById('add-announcement-btn');
+    
     if (!container) return;
-    container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">Loading...</p>';
+    
+    // Show/Hide Add Button based on Role
+    if (userRole === 'admin') {
+        if (addBtn) addBtn.style.display = 'inline-flex';
+    } else {
+        if (addBtn) addBtn.style.display = 'none';
+    }
+
+    container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">⏳ Loading...</p>';
+    
     try {
         const snap = await db.collection('announcements').orderBy('createdAt', 'desc').get();
         const announcements = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (announcements.length === 0) { container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No announcements.</p>'; return; }
+        
+        if (announcements.length === 0) { 
+            container.innerHTML = '<p style="text-align:center;padding:60px 20px;color:#7f8c8d;">📭 No announcements yet.</p>'; 
+            return; 
+        }
         
         container.innerHTML = announcements.map(a => `
             <div class="announcement-card">
                 <div class="announcement-header">
-                    <div><span class="complaint-category cat-${a.category||'general'}">${categoryConfig[a.category]?.label||'📢 General'}</span>
-                    <div class="announcement-title">${escapeHtml(a.title)}</div></div>
+                    <div>
+                        <span class="complaint-category cat-${a.category || 'general'}">${categoryConfig[a.category]?.label || '📢 General'}</span>
+                        <div class="announcement-title">${escapeHtml(a.title)}</div>
+                    </div>
+                    ${userRole === 'admin' ? `
+                        <div class="announcement-actions">
+                            <button class="btn btn-sm btn-outline" onclick="editAnnouncement('${a.id}')">✏️ Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${a.id}')">🗑️ Delete</button>
+                        </div>
+                    ` : ''}
                 </div>
                 <div class="announcement-content">${escapeHtml(a.content)}</div>
-                <div class="announcement-meta"><span>📅 ${a.createdAt ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span></div>
+                <div class="announcement-meta">
+                    <span>📅 ${a.createdAt ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
+                    <span>👤 ${escapeHtml(a.createdBy || 'Admin')}</span>
+                </div>
             </div>
         `).join('');
-    } catch (e) { container.innerHTML = '<p>Error.</p>'; }
+    } catch (error) { 
+        console.error(error);
+        container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:20px;">Error loading announcements.</p>'; 
+    }
 }
 
 async function saveAnnouncement() {
     const title = document.getElementById('announcement-title')?.value.trim();
     const content = document.getElementById('announcement-content')?.value.trim();
     const category = document.getElementById('announcement-category')?.value;
-    if (!title || !content) { showToast('Fill title and content.', 'warning'); return; }
+    
+    if (!title || !content) { 
+        showToast('Please fill in Title and Content.', 'warning'); 
+        return; 
+    }
+    
     try {
         await db.collection('announcements').add({
-            title, content, category, createdBy: currentUser.email,
+            title: title,
+            content: content,
+            category: category || 'general',
+            createdBy: currentUser.email || 'Admin',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        
         closeModal('announcementModal');
         showToast('Announcement Posted!', 'success');
-        loadAnnouncements();
-    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
+        loadAnnouncements(); // Refresh list
+        
+        // Clear inputs
+        document.getElementById('announcement-title').value = '';
+        document.getElementById('announcement-content').value = '';
+        
+    } catch (error) { 
+        showToast('Failed: ' + error.message, 'danger'); 
+    }
 }
 
 // ==================== ACCOUNT PAGE ====================
