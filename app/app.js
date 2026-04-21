@@ -318,38 +318,161 @@ function stringToColor(str) {
     return '#' + '00000'.substring(0, 6 - c.length) + c;
 }
 
-// ==================== SUMMONS ====================
+// ==================== SUMMONS FUNCTIONS ====================
+
 async function renderSummons() {
     const container = document.getElementById('summonsList');
+    const scheduleBtn = document.getElementById('schedule-summons-btn');
+    
     if (!container) return;
-    container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">Loading...</p>';
+    
+    // Show Schedule button only for admins
+    if (userRole === 'admin') {
+        if (scheduleBtn) scheduleBtn.style.display = 'inline-flex';
+    } else {
+        if (scheduleBtn) scheduleBtn.style.display = 'none';
+    }
+    
+    container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:60px 20px;">⏳ Loading...</p>';
+    
     try {
         const snap = await db.collection('summons').orderBy('date', 'asc').get();
         const summons = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (summons.length === 0) { container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">No summons.</p>'; return; }
-        container.innerHTML = summons.map(s => `
-            <div class="summons-card">
-                <div class="summons-info"><h4>${escapeHtml(s.caseTitle)}</h4><p>${escapeHtml(s.complainantName)} vs ${escapeHtml(s.respondentName)}</p></div>
-                <div class="summons-date"><div class="date">${s.date}</div><div class="time">${s.time}</div></div>
-            </div>
-        `).join('');
-    } catch (e) { container.innerHTML = '<p>Error.</p>'; }
+        
+        if (summons.length === 0) { 
+            container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:60px 20px;">📭 No summons scheduled.</p>'; 
+            return; 
+        }
+        
+        container.innerHTML = summons.map(s => {
+            const dateStr = s.date ? new Date(s.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
+            
+            return `
+                <div class="summons-card">
+                    <div class="summons-info">
+                        <h4>${escapeHtml(s.caseTitle)}</h4>
+                        <p><strong>Complainant:</strong> ${escapeHtml(s.complainantName)}</p>
+                        <p><strong>Respondent:</strong> ${escapeHtml(s.respondentName)}</p>
+                        <p><strong>Location:</strong> ${escapeHtml(s.location)}</p>
+                    </div>
+                    <div class="summons-date">
+                        <div class="date">${dateStr}</div>
+                        <div class="time">🕐 ${s.time || 'N/A'}</div>
+                        ${userRole === 'admin' ? `
+                            <div class="announcement-actions" style="margin-top:12px;">
+                                <button class="btn btn-sm btn-outline" onclick="editSummons('${s.id}')">✏️ Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteSummons('${s.id}')">🗑️ Delete</button>
+                            </div>
+                        ` : `<span class="status-badge status-confirmed"><span class="status-dot"></span> Confirmed</span>`}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) { 
+        console.error(error);
+        container.innerHTML = '<p style="text-align:center; color:var(--danger); padding:20px;">Error loading summons.</p>'; 
+    }
 }
 
-async function addSummons() {
-    const c = document.getElementById('summons-complainant')?.value.trim();
-    const r = document.getElementById('summons-respondent')?.value.trim();
-    const caseT = document.getElementById('summons-case')?.value.trim();
-    const d = document.getElementById('summons-date')?.value;
-    const t = document.getElementById('summons-time')?.value;
-    const l = document.getElementById('summons-location')?.value;
-    if (!c || !r || !caseT || !d || !t) { showToast('Fill all fields.', 'warning'); return; }
+async function saveSummons() {
+    const editId = document.getElementById('summons-edit-id')?.value;
+    const complainant = document.getElementById('summons-complainant')?.value.trim();
+    const respondent = document.getElementById('summons-respondent')?.value.trim();
+    const caseTitle = document.getElementById('summons-case')?.value.trim();
+    const date = document.getElementById('summons-date')?.value;
+    const time = document.getElementById('summons-time')?.value;
+    const location = document.getElementById('summons-location')?.value;
+    
+    if (!complainant || !respondent || !caseTitle || !date || !time) { 
+        showToast('Please fill in all required fields.', 'warning'); 
+        return; 
+    }
+    
     try {
-        await db.collection('summons').add({ complainantName: c, respondentName: r, caseTitle: caseT, date: d, time: t, location: l, status: 'confirmed', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        const summonsData = {
+            complainantName: complainant,
+            respondentName: respondent,
+            caseTitle: caseTitle,
+            date: date,
+            time: time,
+            location: location || 'Barangay Hall',
+            status: 'confirmed',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        if (editId) {
+            // Update existing
+            await db.collection('summons').doc(editId).update(summonsData);
+            showToast('Summons updated!', 'success');
+        } else {
+            // Create new
+            summonsData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await db.collection('summons').add(summonsData);
+            showToast('Summons scheduled!', 'success');
+        }
+        
         closeModal('summonsModal');
-        showToast('Summons scheduled!', 'success');
         renderSummons();
-    } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
+        
+        // Clear inputs
+        document.getElementById('summons-edit-id').value = '';
+        document.getElementById('summons-complainant').value = '';
+        document.getElementById('summons-respondent').value = '';
+        document.getElementById('summons-case').value = '';
+        document.getElementById('summons-date').value = '';
+        document.getElementById('summons-time').value = '';
+        
+    } catch (error) { 
+        showToast('Failed: ' + error.message, 'danger'); 
+    }
+}
+
+async function editSummons(id) {
+    if (userRole !== 'admin') return;
+    
+    try {
+        const doc = await db.collection('summons').doc(id).get();
+        if (doc.exists) {
+            const data = doc.data();
+            document.getElementById('summons-edit-id').value = id;
+            document.getElementById('summons-complainant').value = data.complainantName || '';
+            document.getElementById('summons-respondent').value = data.respondentName || '';
+            document.getElementById('summons-case').value = data.caseTitle || '';
+            document.getElementById('summons-date').value = data.date || '';
+            document.getElementById('summons-time').value = data.time || '';
+            document.getElementById('summons-location').value = data.location || 'Barangay Hall - Conference Room';
+            document.getElementById('summons-modal-title').textContent = '✏️ Edit Summons';
+            openModal('summonsModal');
+        }
+    } catch (error) {
+        showToast('Error loading summons', 'danger');
+    }
+}
+
+async function deleteSummons(id) {
+    if (userRole !== 'admin') return;
+    if (!confirm('Are you sure you want to delete this summons?')) return;
+    
+    try {
+        await db.collection('summons').doc(id).delete();
+        showToast('Summons deleted', 'success');
+        renderSummons();
+    } catch (error) {
+        showToast('Failed to delete: ' + error.message, 'danger');
+    }
+}
+
+function openSummonsModal() {
+    // Clear form for new summons
+    document.getElementById('summons-edit-id').value = '';
+    document.getElementById('summons-complainant').value = '';
+    document.getElementById('summons-respondent').value = '';
+    document.getElementById('summons-case').value = '';
+    document.getElementById('summons-date').value = '';
+    document.getElementById('summons-time').value = '';
+    document.getElementById('summons-location').value = 'Barangay Hall - Conference Room';
+    document.getElementById('summons-modal-title').textContent = '📋 Schedule Summons';
+    openModal('summonsModal');
 }
 
 // ==================== COURT CALENDAR ====================
@@ -732,3 +855,8 @@ window.saveAnnouncement = saveAnnouncement;
 window.editAnnouncement = editAnnouncement;
 window.deleteAnnouncement = deleteAnnouncement;
 window.openAnnouncementModal = openAnnouncementModal;
+window.renderSummons = renderSummons;
+window.saveSummons = saveSummons;
+window.editSummons = editSummons;
+window.deleteSummons = deleteSummons;
+window.openSummonsModal = openSummonsModal;
