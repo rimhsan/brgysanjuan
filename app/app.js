@@ -225,7 +225,7 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
             return; 
         }
         
-        // FIXED SYNTAX ERROR HERE: c => instead of c = >
+        // FIXED: c => instead of c = >
         container.innerHTML = complaints.map(c => `
             <div class="complaint-item">
                 <div class="complaint-header">
@@ -541,16 +541,14 @@ window.handleLogin = async () => {
     try { await auth.signInWithEmailAndPassword(e,p); } catch(err) { alert(err.message); }
 };
 
-// FIXED SIGNUP FUNCTION - This saves to Firestore
+// FIXED SIGNUP FUNCTION - This saves to Firestore ✅
 window.handleSignup = async () => {
-    // 1. Get values from HTML
     const email = document.getElementById('signup-email')?.value.trim();
     const pass = document.getElementById('signup-password')?.value;
     const fname = document.getElementById('signup-fname')?.value.trim();
     const lname = document.getElementById('signup-lname')?.value.trim();
     const purok = document.getElementById('signup-purok')?.value;
     
-    // Validation
     if (!email || !pass || !fname || !lname || !purok) {
         alert('Please fill in all fields.');
         return;
@@ -561,11 +559,11 @@ window.handleSignup = async () => {
     }
 
     try {
-        // 2. Create user in Firebase Authentication
-        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, pass);
+        // 1. Create user in Firebase Authentication
+        const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
         const user = userCredential.user;
 
-        // 3. SAVE PROFILE TO FIRESTORE DATABASE ✅
+        // 2. SAVE PROFILE TO FIRESTORE DATABASE ✅
         await db.collection('profiles').doc(user.uid).set({
             firstName: fname,
             lastName: lname,
