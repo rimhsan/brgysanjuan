@@ -544,56 +544,48 @@ window.handleLogin = async () => {
 // FIXED SIGNUP FUNCTION - This saves to Firestore
 window.handleSignup = async () => {
     // 1. Get values from HTML
-    const emailEl = document.getElementById('signup-email');
-    const passEl = document.getElementById('signup-password');
-    const fnameEl = document.getElementById('signup-fname');
-    const lnameEl = document.getElementById('signup-lname');
-    const purokEl = document.getElementById('signup-purok');
+    const email = document.getElementById('signup-email')?.value.trim();
+    const pass = document.getElementById('signup-password')?.value;
+    const fname = document.getElementById('signup-fname')?.value.trim();
+    const lname = document.getElementById('signup-lname')?.value.trim();
+    const purok = document.getElementById('signup-purok')?.value;
     
-    // Safety check
-    if (!emailEl || !passEl || !fnameEl || !lnameEl || !purokEl) {
-        console.error("Signup elements not found.");
+    // Validation
+    if (!email || !pass || !fname || !lname || !purok) {
+        alert('Please fill in all fields.');
         return;
     }
-
-    const email = emailEl.value.trim();
-    const pass = passEl.value;
-    const firstName = fnameEl.value.trim();
-    const lastName = lnameEl.value.trim();
-    const purok = purokEl.value;
-
-    // Validation
-    if (!email || !pass || !firstName || !lastName || !purok) {
-        alert('Please fill in all fields.');
+    if (pass.length < 6) {
+        alert('Password must be at least 6 characters.');
         return;
     }
 
     try {
-        // 2. Create User in Firebase Authentication
-        const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
+        // 2. Create user in Firebase Authentication
+        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, pass);
         const user = userCredential.user;
 
-        // 3. SAVE PROFILE TO FIRESTORE DATABASE
+        // 3. SAVE PROFILE TO FIRESTORE DATABASE ✅
         await db.collection('profiles').doc(user.uid).set({
-            firstName: firstName,
-            lastName: lastName,
+            firstName: fname,
+            lastName: lname,
             email: email,
             purok: purok,
-            role: 'resident', // Default role
+            role: 'resident',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
         alert('Account created successfully! Please log in.');
         
-        // Switch back to login form
+        // Switch to login form
         toggleAuthMode('login');
         
         // Clear inputs
-        emailEl.value = '';
-        passEl.value = '';
-        fnameEl.value = '';
-        lnameEl.value = '';
-        purokEl.value = '';
+        document.getElementById('signup-email').value = '';
+        document.getElementById('signup-password').value = '';
+        document.getElementById('signup-fname').value = '';
+        document.getElementById('signup-lname').value = '';
+        document.getElementById('signup-purok').value = '';
 
     } catch (error) {
         console.error("Signup Error:", error);
