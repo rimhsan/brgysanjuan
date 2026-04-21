@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scheduled Summons - Barangay San Juan</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
     <!-- Sidebar -->
@@ -25,6 +24,7 @@
             <div class="nav-section-label">Information</div>
             <a href="map.html"><span class="icon">🗺️</span> Barangay Map</a>
             <a href="announcements.html"><span class="icon">📢</span> Announcements</a>
+            <a href="#" onclick="handleLogout()"><span class="icon">🚪</span> Logout</a>
         </nav>
     </aside>
 
@@ -48,7 +48,6 @@
                     <span class="dropdown-arrow">▼</span>
                 </div>
 
-                <!-- Profile Dropdown -->
                 <div class="profile-dropdown" id="profileDropdown">
                     <div class="dropdown-header">
                         <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
@@ -76,38 +75,64 @@
 
         <!-- Content -->
         <div class="content">
-            <h1 class="page-title">Scheduled Summons</h1>
-            <p class="page-subtitle">Barangay justice system - scheduled summons and hearings.</p>
-            
-            <div style="display:flex; justify-content:flex-end; margin-bottom:20px;">
-                <button class="btn btn-primary" id="schedule-summons-btn" style="display:none;" onclick="openModal('summonsModal')">➕ Schedule Summons</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
+                <div>
+                    <h1 class="page-title">Scheduled Summons</h1>
+                    <p class="page-subtitle">Barangay justice system - scheduled summons and hearings.</p>
+                </div>
+                <button class="btn btn-primary" id="schedule-summons-btn" style="display:none;" onclick="openSummonsModal()">➕ Schedule Summons</button>
             </div>
             
-            <div class="card">
-                <div class="card-body">
-                    <div id="summonsList"></div>
-                </div>
+            <div class="summons-list" id="summonsList">
+                <p style="text-align:center; color:#7f8c8d; padding:60px 20px;">⏳ Loading summons...</p>
             </div>
         </div>
     </div>
 
-    <!-- Summons Modal -->
+    <!-- Add/Edit Summons Modal -->
     <div class="modal-overlay" id="summonsModal">
         <div class="modal">
-            <div class="modal-header"><h3>📋 Schedule Summons</h3><button class="modal-close" onclick="closeModal('summonsModal')">✕</button></div>
+            <div class="modal-header">
+                <h3 id="summons-modal-title">📋 Schedule Summons</h3>
+                <button class="modal-close" onclick="closeModal('summonsModal')">✕</button>
+            </div>
             <div class="modal-body">
                 <input type="hidden" id="summons-edit-id">
-                <h3 id="summons-modal-title">📋 Schedule Summons</h3>
-                <div class="form-group"><label>Complainant Name *</label><input type="text" id="summons-complainant" placeholder="Name"></div>
-                <div class="form-group"><label>Respondent Name *</label><input type="text" id="summons-respondent" placeholder="Name"></div>
-                <div class="form-group"><label>Case/Matter *</label><input type="text" id="summons-case" placeholder="e.g., Boundary dispute"></div>
-                <div class="form-row">
-                    <div class="form-group"><label>Date *</label><input type="date" id="summons-date"></div>
-                    <div class="form-group"><label>Time *</label><input type="time" id="summons-time"></div>
+                <div class="form-group">
+                    <label>Complainant Name *</label>
+                    <input type="text" id="summons-complainant" placeholder="Name">
                 </div>
-                <div class="form-group"><label>Location</label><select id="summons-location"><option value="Barangay Hall - Conference Room">Conference Room</option><option value="Barangay Hall - Main Office">Main Office</option><option value="Multipurpose Court">Multipurpose Court</option></select></div>
+                <div class="form-group">
+                    <label>Respondent Name *</label>
+                    <input type="text" id="summons-respondent" placeholder="Name">
+                </div>
+                <div class="form-group">
+                    <label>Case/Matter *</label>
+                    <input type="text" id="summons-case" placeholder="e.g., Boundary dispute">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date *</label>
+                        <input type="date" id="summons-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Time *</label>
+                        <input type="time" id="summons-time">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Location</label>
+                    <select id="summons-location">
+                        <option value="Barangay Hall - Conference Room">Conference Room</option>
+                        <option value="Barangay Hall - Main Office">Main Office</option>
+                        <option value="Multipurpose Court">Multipurpose Court</option>
+                    </select>
+                </div>
             </div>
-            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('summonsModal')">Cancel</button><button class="btn btn-primary" onclick="addSummons()">Schedule</button></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('summonsModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveSummons()">Save Summons</button>
+            </div>
         </div>
     </div>
 
