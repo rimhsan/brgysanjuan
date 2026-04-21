@@ -917,7 +917,6 @@ window.handleLogin = async () => {
 // FIXED SIGNUP FUNCTION - This saves to Firestore
 window.handleSignup = async () => {
     // 1. Get values from the HTML form
-    // IMPORTANT: Make sure your HTML input IDs match these names
     const email = document.getElementById('signup-email')?.value;
     const password = document.getElementById('signup-password')?.value;
     const firstName = document.getElementById('signup-fname')?.value;
@@ -948,7 +947,7 @@ window.handleSignup = async () => {
 
         alert("Account created successfully! Please login.");
         
-        // Optional: Switch back to login form or reload
+        // Optional: Switch back to login form
         const loginForm = document.getElementById('login-form');
         const signupForm = document.getElementById('signup-form');
         if(loginForm) loginForm.style.display = 'block';
