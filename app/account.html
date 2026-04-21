@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Account - Barangay San Juan</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
     <!-- Sidebar -->
@@ -37,6 +36,7 @@
                 <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
             </div>
             <div class="topbar-right">
+                <button class="notification-btn">🔔<span class="notification-badge"></span></button>
                 <div class="user-profile-trigger" onclick="toggleProfileDropdown()">
                     <div class="user-avatar" id="user-avatar">NO</div>
                     <div class="user-info-brief">
@@ -45,7 +45,6 @@
                     </div>
                     <span class="dropdown-arrow">▼</span>
                 </div>
-
                 <div class="profile-dropdown" id="profileDropdown">
                     <div class="dropdown-header">
                         <div class="dropdown-avatar" id="dropdown-avatar">NO</div>
@@ -71,18 +70,22 @@
             </div>
         </div>
 
-        <!-- Content -->
+        <!-- Account Content -->
         <div class="content">
+            <h1 class="page-title">My Account</h1>
+            <p class="page-subtitle">Manage your profile settings and security.</p>
+
             <div class="account-layout">
-                <!-- Side Navigation -->
+                <!-- Left Sidebar for Tabs -->
                 <div class="account-nav">
                     <button class="active" onclick="switchAccountTab('profile', this)">👤 Profile Info</button>
-                    <button onclick="switchAccountTab('security', this)">🔐 Security</button>
-                    <button onclick="switchAccountTab('complaints', this)">📋 My Complaints</button>
+                    <button onclick="switchAccountTab('security', this)">🔒 Security</button>
+                    <button onclick="switchAccountTab('complaints', this)">📝 My Complaints</button>
                 </div>
 
-                <!-- Content Area -->
+                <!-- Right Content Area -->
                 <div class="account-content">
+                    
                     <!-- Profile Section -->
                     <div id="tab-profile" class="account-section active">
                         <div class="section-header">
@@ -136,16 +139,16 @@
                             <h2>My Complaints</h2>
                             <p>Track the status of concerns you've submitted.</p>
                         </div>
-                        <div class="complaints-grid" id="my-complaints-list">
+                        <div class="complaint-list" id="my-complaints-list">
                             <p style="text-align:center; color:var(--text-light); padding:40px;">⏳ Loading your complaints...</p>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
     <!-- Scripts -->
