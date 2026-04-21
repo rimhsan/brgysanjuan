@@ -916,53 +916,47 @@ window.handleLogin = async () => {
 
 // FIXED SIGNUP FUNCTION - This saves to Firestore
 window.handleSignup = async () => {
-    const email = document.getElementById('signup-email')?.value.trim();
-    const pass = document.getElementById('signup-password')?.value;
-    const fname = document.getElementById('signup-fname')?.value.trim();
-    const lname = document.getElementById('signup-lname')?.value.trim();
+    // 1. Get values from the HTML form
+    // IMPORTANT: Make sure your HTML input IDs match these names
+    const email = document.getElementById('signup-email')?.value;
+    const password = document.getElementById('signup-password')?.value;
+    const firstName = document.getElementById('signup-fname')?.value;
+    const lastName = document.getElementById('signup-lname')?.value;
     const purok = document.getElementById('signup-purok')?.value;
-    
-    if (!email || !pass || !fname || !lname || !purok) {
-        alert('Please fill in all fields.');
-        return;
-    }
-    
-    if (pass.length < 6) {
-        alert('Password must be at least 6 characters.');
+
+    // 2. Validation
+    if (!email || !password || !firstName || !lastName) {
+        alert("Please fill in all fields.");
         return;
     }
 
     try {
-        // 1. Create User in Firebase Auth
-        const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
+        // 3. Create the user in Firebase Authentication
+        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
 
-        // 2. Save User Profile to Firestore
+        // 4. Save the user details to Firestore 'profiles' collection
+        // We use the user's unique ID (uid) as the document ID
         await db.collection('profiles').doc(user.uid).set({
-            firstName: fname,
-            lastName: lname,
+            firstName: firstName,
+            lastName: lastName,
             email: email,
             purok: purok,
-            role: 'resident', // Default role
-            phone: '',
+            role: 'resident', // Default role for new signups
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        alert('Account created successfully! Please log in.');
+        alert("Account created successfully! Please login.");
         
-        // Switch back to login view
-        toggleAuthMode('login');
+        // Optional: Switch back to login form or reload
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        if(loginForm) loginForm.style.display = 'block';
+        if(signupForm) signupForm.style.display = 'none';
         
-        // Clear inputs
-        document.getElementById('signup-email').value = '';
-        document.getElementById('signup-password').value = '';
-        document.getElementById('signup-fname').value = '';
-        document.getElementById('signup-lname').value = '';
-        document.getElementById('signup-purok').value = '';
-
     } catch (error) {
         console.error("Signup Error:", error);
-        alert('Error: ' + error.message);
+        alert(error.message);
     }
 };
 
