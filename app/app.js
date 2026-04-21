@@ -451,59 +451,67 @@ async function bookCourt() {
     } catch (error) { showToast('Failed: ' + error.message, 'danger'); }
 }
 
-// ==================== ANNOUNCEMENTS ====================
+// ==================== ANNOUNCEMENTS FUNCTIONS ====================
+
 async function loadAnnouncements() {
     const container = document.getElementById('announcementsList');
     const addBtn = document.getElementById('add-announcement-btn');
     
     if (!container) return;
     
-    // Show/Hide Add Button based on Role
+    // Show Add button only for admins
     if (userRole === 'admin') {
         if (addBtn) addBtn.style.display = 'inline-flex';
     } else {
         if (addBtn) addBtn.style.display = 'none';
     }
-
-    container.innerHTML = '<p style="text-align:center;padding:40px;color:#7f8c8d;">⏳ Loading...</p>';
+    
+    container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:60px 20px;">⏳ Loading...</p>';
     
     try {
         const snap = await db.collection('announcements').orderBy('createdAt', 'desc').get();
         const announcements = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         if (announcements.length === 0) { 
-            container.innerHTML = '<p style="text-align:center;padding:60px 20px;color:#7f8c8d;">📭 No announcements yet.</p>'; 
+            container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:60px 20px;">📭 No announcements yet.</p>'; 
             return; 
         }
         
-        container.innerHTML = announcements.map(a => `
-            <div class="announcement-card">
-                <div class="announcement-header">
-                    <div>
-                        <span class="complaint-category cat-${a.category || 'general'}">${categoryConfig[a.category]?.label || '📢 General'}</span>
-                        <div class="announcement-title">${escapeHtml(a.title)}</div>
-                    </div>
-                    ${userRole === 'admin' ? `
-                        <div class="announcement-actions">
-                            <button class="btn btn-sm btn-outline" onclick="editAnnouncement('${a.id}')">✏️ Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${a.id}')">🗑️ Delete</button>
+        container.innerHTML = announcements.map(a => {
+            const categoryLabel = categoryConfig[a.category]?.label || '📢 General';
+            const categoryClass = categoryConfig[a.category]?.class || 'cat-general';
+            const dateStr = a.createdAt ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'N/A';
+            
+            return `
+                <div class="announcement-card">
+                    <div class="announcement-header">
+                        <div>
+                            <span class="complaint-category ${categoryClass}">${categoryLabel}</span>
+                            <div class="announcement-title">${escapeHtml(a.title)}</div>
                         </div>
-                    ` : ''}
+                        ${userRole === 'admin' ? `
+                            <div class="announcement-actions">
+                                <button class="btn btn-sm btn-outline" onclick="editAnnouncement('${a.id}')">✏️ Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${a.id}')">🗑️ Delete</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="announcement-content">${escapeHtml(a.content)}</div>
+                    <div class="announcement-meta">
+                        <span>📅 ${dateStr}</span>
+                        <span>👤 ${escapeHtml(a.createdBy || 'Admin')}</span>
+                    </div>
                 </div>
-                <div class="announcement-content">${escapeHtml(a.content)}</div>
-                <div class="announcement-meta">
-                    <span>📅 ${a.createdAt ? new Date(a.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
-                    <span>👤 ${escapeHtml(a.createdBy || 'Admin')}</span>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (error) { 
         console.error(error);
-        container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:20px;">Error loading announcements.</p>'; 
+        container.innerHTML = '<p style="text-align:center; color:var(--danger); padding:20px;">Error loading announcements.</p>'; 
     }
 }
 
 async function saveAnnouncement() {
+    const editId = document.getElementById('announcement-edit-id')?.value;
     const title = document.getElementById('announcement-title')?.value.trim();
     const content = document.getElementById('announcement-content')?.value.trim();
     const category = document.getElementById('announcement-category')?.value;
@@ -514,19 +522,32 @@ async function saveAnnouncement() {
     }
     
     try {
-        await db.collection('announcements').add({
-            title: title,
-            content: content,
-            category: category || 'general',
-            createdBy: currentUser.email || 'Admin',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        if (editId) {
+            // Update existing
+            await db.collection('announcements').doc(editId).update({
+                title: title,
+                content: content,
+                category: category,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showToast('Announcement updated!', 'success');
+        } else {
+            // Create new
+            await db.collection('announcements').add({
+                title: title,
+                content: content,
+                category: category || 'general',
+                createdBy: currentUser.email || 'Admin',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            showToast('Announcement posted!', 'success');
+        }
         
         closeModal('announcementModal');
-        showToast('Announcement Posted!', 'success');
-        loadAnnouncements(); // Refresh list
+        loadAnnouncements();
         
         // Clear inputs
+        document.getElementById('announcement-edit-id').value = '';
         document.getElementById('announcement-title').value = '';
         document.getElementById('announcement-content').value = '';
         
@@ -535,6 +556,47 @@ async function saveAnnouncement() {
     }
 }
 
+async function editAnnouncement(id) {
+    if (userRole !== 'admin') return;
+    
+    try {
+        const doc = await db.collection('announcements').doc(id).get();
+        if (doc.exists) {
+            const data = doc.data();
+            document.getElementById('announcement-edit-id').value = id;
+            document.getElementById('announcement-title').value = data.title || '';
+            document.getElementById('announcement-content').value = data.content || '';
+            document.getElementById('announcement-category').value = data.category || 'general';
+            document.getElementById('announcement-modal-title').textContent = '✏️ Edit Announcement';
+            openModal('announcementModal');
+        }
+    } catch (error) {
+        showToast('Error loading announcement', 'danger');
+    }
+}
+
+async function deleteAnnouncement(id) {
+    if (userRole !== 'admin') return;
+    if (!confirm('Are you sure you want to delete this announcement?')) return;
+    
+    try {
+        await db.collection('announcements').doc(id).delete();
+        showToast('Announcement deleted', 'success');
+        loadAnnouncements();
+    } catch (error) {
+        showToast('Failed to delete: ' + error.message, 'danger');
+    }
+}
+
+function openAnnouncementModal() {
+    // Clear form for new announcement
+    document.getElementById('announcement-edit-id').value = '';
+    document.getElementById('announcement-title').value = '';
+    document.getElementById('announcement-content').value = '';
+    document.getElementById('announcement-category').value = 'general';
+    document.getElementById('announcement-modal-title').textContent = '📢 Add Announcement';
+    openModal('announcementModal');
+}
 // ==================== ACCOUNT PAGE ====================
 function switchAccountTab(tabId, btn) {
     document.querySelectorAll('.account-section').forEach(s => s.classList.remove('active'));
