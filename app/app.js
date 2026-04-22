@@ -1,4 +1,4 @@
-// 🔑 FIREBASE CONFIGURATION
+// config
 const firebaseConfig = {
     apiKey: "AIzaSyCUn_OVro6-NBfIAn0SAcGZeV25HqiCvlc",
     authDomain: "barangay-san-juan.firebaseapp.com",
@@ -9,7 +9,7 @@ const firebaseConfig = {
     measurementId: "G-5XWG6ET1CE"
 };
 
-// Initialize Firebase
+// firebase
 try {
     firebase.initializeApp(firebaseConfig);
 } catch (e) {
@@ -20,7 +20,7 @@ try {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Global State
+// constants
 let currentUser = null;
 let userRole = 'resident';
 let mapInstance = null;
@@ -28,10 +28,8 @@ let currentMonth = new Date();
 let selectedDate = new Date();
 let allBookings = [];
 
-// Detect Current Page
 const currentPage = window.location.pathname.split('/').pop() || 'index.html';
 
-// Constants
 const categoryConfig = {
     roadwork: { label: '🚧 Roadwork', class: 'cat-roadwork' },
     lightpost: { label: '💡 Lightpost', class: 'cat-lightpost' },
@@ -42,7 +40,7 @@ const categoryConfig = {
     general: { label: '📢 General', class: 'cat-general' }
 };
 
-// ==================== AUTHENTICATION ====================
+// authentication
 auth.onAuthStateChanged(async (user) => {
     const isLoginPage = currentPage === 'login.html';
     const authOverlay = document.getElementById('auth-overlay');
@@ -104,7 +102,7 @@ async function loadUserProfile() {
     }
 }
 
-// ==================== PAGE INITIALIZATION ====================
+// page-load
 async function initializeApp() {
     if (currentPage === 'index.html' || currentPage === '') {
         await updateStats();
@@ -120,7 +118,7 @@ async function initializeApp() {
     if (currentPage === 'account.html') await loadAccountPage();
 }
 
-// ==================== UI HELPERS ====================
+// ui
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.toggle('open');
@@ -153,7 +151,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ==================== DROPDOWN ====================
+// profile-dropdown
 window.toggleProfileDropdown = function() {
     const dropdown = document.getElementById('profileDropdown');
     const trigger = document.querySelector('.user-profile-trigger');
@@ -177,7 +175,7 @@ async function handleLogout() {
     window.location.href = 'login.html'; 
 }
 
-// ==================== DASHBOARD DATA ====================
+// dashboard-index
 async function updateStats() {
     if (!document.getElementById('stat-residents')) return;
     try {
@@ -246,7 +244,7 @@ function formatTime(timeStr) {
     return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
 }
 
-// ==================== COMPLAINTS ====================
+// complaints
 async function renderComplaints(filter = 'all', elementId = 'complaintList') {
     const container = document.getElementById(elementId);
     if (!container) return;
@@ -262,7 +260,6 @@ async function renderComplaints(filter = 'all', elementId = 'complaintList') {
             return; 
         }
         
-        // FIXED: Arrow function syntax
         container.innerHTML = complaints.map(c => `
             <div class="complaint-item">
                 <div class="complaint-header">
@@ -375,7 +372,7 @@ function filterComplaints(filter, btn) {
     renderComplaints(filter);
 }
 
-// ==================== RESIDENTS ====================
+// residents
 async function renderResidents() {
     const container = document.getElementById('residentGrid');
     if (!container) return;
@@ -400,7 +397,7 @@ function stringToColor(str) {
     return '#' + '00000'.substring(0, 6 - c.length) + c;
 }
 
-// ==================== SUMMONS ====================
+// summons
 async function renderSummons() {
     const container = document.getElementById('summonsList');
     if (!container) return;
@@ -498,7 +495,7 @@ function openSummonsModal() {
     openModal('summonsModal');
 }
 
-// ==================== COURT CALENDAR ====================
+// court-scheduling
 function getLocalDateString(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -512,7 +509,6 @@ async function initCalendar(resetDate = false) {
         selectedDate = new Date();
     }
     
-    // Admin Sidebar Logic
     const adminSidebar = document.getElementById('admin-court-sidebar');
     if (adminSidebar) {
         adminSidebar.style.display = userRole === 'admin' ? 'block' : 'none';
@@ -678,7 +674,7 @@ async function bookCourt() {
     } catch (e) { showToast('Failed: ' + e.message, 'danger'); }
 }
 
-// ==================== ANNOUNCEMENTS ====================
+// announcements
 async function loadAnnouncements() {
     const container = document.getElementById('announcementsList');
     const addBtn = document.getElementById('add-announcement-btn');
@@ -817,7 +813,7 @@ function openAnnouncementModal() {
     openModal('announcementModal');
 }
 
-// ==================== ACCOUNT PAGE ====================
+// account
 function switchAccountTab(tabId, btn) {
     document.querySelectorAll('.account-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.account-nav button').forEach(b => b.classList.remove('active'));
@@ -900,7 +896,7 @@ async function loadMyComplaints() {
     } catch (e) { container.innerHTML = '<p>Error loading complaints.</p>'; }
 }
 
-// ==================== MAP ====================
+//map
 function initMap() {
     if (mapInstance || !document.getElementById('map')) return;
     mapInstance = L.map('map').setView([13.4205, 123.4194], 15);
@@ -908,7 +904,7 @@ function initMap() {
     L.marker([13.4205, 123.4194]).addTo(mapInstance).bindPopup('Barangay Hall');
 }
 
-// ==================== LOGIN/SIGNUP ====================
+// login-signup
 window.handleLogin = async () => {
     const e = document.getElementById('login-email')?.value;
     const p = document.getElementById('login-password')?.value;
@@ -916,7 +912,6 @@ window.handleLogin = async () => {
     try { await auth.signInWithEmailAndPassword(e,p); } catch(err) { alert(err.message); }
 };
 
-// FIXED SIGNUP FUNCTION - Saves to Firestore
 window.handleSignup = async () => {
     const email = document.getElementById('signup-email')?.value.trim();
     const pass = document.getElementById('signup-password')?.value;
@@ -934,27 +929,22 @@ window.handleSignup = async () => {
     }
 
     try {
-        // 1. Create user in Firebase Authentication
         const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
         const user = userCredential.user;
 
-        // 2. Save user profile to Firestore
         await db.collection('profiles').doc(user.uid).set({
             firstName: fname,
             lastName: lname,
             email: email,
             purok: purok,
-            role: 'resident',  // Default role
+            role: 'resident',
             phone: '',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
         alert('Account created successfully! Please login.');
-        
-        // Switch to login form
         toggleAuthMode('login');
         
-        // Clear inputs
         document.getElementById('signup-email').value = '';
         document.getElementById('signup-password').value = '';
         document.getElementById('signup-fname').value = '';
@@ -974,7 +964,7 @@ window.toggleAuthMode = (m) => {
     if(signupForm) signupForm.style.display = m==='signup'?'block':'none';
 };
 
-// ==================== GLOBAL EXPORTS ====================
+// global-exports
 window.initCalendar = initCalendar;
 window.changeMonth = changeMonth;
 window.openBookingModal = openBookingModal;
